@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
-  Circle,
   Rectangle,
   useMapEvents,
 } from 'react-leaflet';
@@ -70,9 +69,6 @@ function PerimeterDrawer({ onBoundsSelected }: PerimeterDrawerProps) {
 interface FlightMapProps {
   flights: Aircraft[];
   bbox: BoundingBox | null;
-  radiusKm: number;
-  mode: 'location' | 'perimeter';
-  locationCenter: [number, number] | null;
   onPerimeterSelected: (bbox: BoundingBox) => void;
   selectedFlight: string | null;
   onSelectFlight: (icao24: string | null) => void;
@@ -81,9 +77,6 @@ interface FlightMapProps {
 export function FlightMap({
   flights,
   bbox,
-  radiusKm,
-  mode,
-  locationCenter,
   onPerimeterSelected,
   selectedFlight,
   onSelectFlight,
@@ -99,25 +92,15 @@ export function FlightMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Draw the active bounding area */}
-      {mode === 'location' && locationCenter && (
-        <Circle
-          center={locationCenter}
-          radius={radiusKm * 1000}
-          pathOptions={{ color: '#3b82f6', fillOpacity: 0.05, weight: 1.5 }}
-        />
-      )}
-      {mode === 'perimeter' && bbox && (
+      {/* Draw the active perimeter */}
+      {bbox && (
         <Rectangle
           bounds={[[bbox.lamin, bbox.lomin], [bbox.lamax, bbox.lomax]]}
           pathOptions={{ color: '#3b82f6', fillOpacity: 0.05, weight: 1.5 }}
         />
       )}
 
-      {/* Perimeter drawing interaction */}
-      {mode === 'perimeter' && (
-        <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
-      )}
+      <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
 
       {/* Plane markers */}
       {flights.map((flight) => (

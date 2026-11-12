@@ -171,7 +171,7 @@ describe('FlightPanel', () => {
     renderPanel({ flights: [], hasArea: false, status: 'idle' });
 
     expect(
-      screen.getByText('Set a search area on the map to begin tracking.'),
+      screen.getByText('Draw a perimeter on the map to begin tracking.'),
     ).toBeTruthy();
     expect(screen.getByText('No area selected')).toBeTruthy();
   });

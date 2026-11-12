@@ -34,7 +34,7 @@ export function deriveFlightListState(
   if (!input.hasArea) {
     return {
       kind: 'no-area',
-      message: 'Set a search area on the map to begin tracking.',
+      message: 'Draw a perimeter on the map to begin tracking.',
     };
   }
 
