@@ -1,14 +1,15 @@
 # Window Seat — Feature Specification
 
-> **Status:** M1 (reliable data foundation) implemented; M2 and later planned
+> **Status:** M1 and M2.0 implemented; M2.1 and later planned
 > **Last updated:** 2026-11-12
-> **Current implementation:** M1 as of 2026-11-12 (branded "SkyWatch")
+> **Current implementation:** M1 + M2.0 as of 2026-11-12 (branded "SkyWatch")
 > **Target product name:** Window Seat
 
 This document describes both what the app does today and what it should do next.
-The pre-restart inventory in section 3 is retained as a baseline; section 3.8
-records what M1 changed. The target-state sections are requirements and are not
-all built yet. Planned scope changes from 2026-11-12 are called out explicitly.
+The pre-restart inventory in section 3 is retained as a baseline; sections 3.8
+and 3.9 record what M1 and M2.0 changed. The target-state sections are
+requirements and are not all built yet. Planned scope changes are called out
+explicitly.
 
 ---
 
@@ -19,10 +20,10 @@ all built yet. Planned scope changes from 2026-11-12 are called out explicitly.
 Window Seat is a lightweight web app for seeing aircraft around a chosen
 location — "what is flying near my window right now?"
 
-The app is a real-time viewer, not a flight planner or historical tracker. Today
-a user can pick a place (or their current position) or draw a custom area;
-**M2.0 will remove place/GPS search and make the drawn perimeter the only mode.**
-Either way the result is a live map and list of aircraft in that area.
+The app is a real-time viewer, not a flight planner or historical tracker. The
+user draws a rectangular perimeter on the map and gets a live map and list of
+aircraft inside it. Location/place search, GPS, and radius selection were removed
+in M2.0; perimeter is the only current mode.
 
 ### 1.2 Target user
 
@@ -79,8 +80,8 @@ Priorities use **P0** (must-have for restart), **P1** (should-have), and
 | --- | --- |
 | **State vector** | One aircraft observation from an ADS-B/OpenSky-style feed: position, altitude, velocity, heading, and metadata. |
 | **Bounding box** | Axis-aligned geographic query area defined by `lamin`, `lomin`, `lamax`, `lomax`. |
-| **Location mode** | Circular search area centered on a searched or detected point, with a radius. |
-| **Perimeter mode** | Rectangular search area drawn by clicking two corners on the map. |
+| **Perimeter mode** | Rectangular search area drawn by clicking two corners on the map; the only current mode. |
+| **View mode (future)** | Pinned origin plus a second-click bearing; draws a visibility cone and filters aircraft within a saved distance. |
 | **Snapshot** | One response from the data provider at a point in time. |
 | **Interpolation** | Animating between two known observations. |
 | **Extrapolation / dead reckoning** | Estimating a position beyond the latest observation using heading and speed. |
@@ -98,8 +99,11 @@ and styles, with no tests, linting, or deployment configuration.
 
 > **M1 update (2026-11-12):** the data layer, request policy, flight hook, status
 > handling, and settings UI have been rebuilt. The gaps described in 3.2–3.6 are
-> historical; see **3.8** for the current M1 status. The area-selection inventory
-> in 3.1 is still current until M2.0 removes location mode.
+> historical; see **3.8** for the current M1 status.
+>
+> **M2.0 update (2026-11-12):** location mode, place search, GPS, geocoding, and
+> radius controls have been removed. Perimeter is the only selection mode; see
+> **3.9**. The location bullets in 3.1 are historical.
 
 ### 3.1 Area selection ✅ / 🟡
 
@@ -242,63 +246,70 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 261 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 321 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
 Still current or deferred:
-- Location and perimeter modes both remain until M2.0 removes location search.
+- M2.0 has since removed location mode; perimeter is now the only selection mode.
 - Smooth animation/trails (M2), workspace persistence (M3), the directional View
   mode (M3.5), mobile/accessibility (M4), and the visual pass (M5) are not built.
 - Community providers remain deferred.
 - Lint/CI remain unconfigured; tests and the production build are the current
   local gates.
 
+### 3.9 M2.0 as-built status (2026-11-12)
+
+M2.0 makes the app perimeter-only:
+
+| Area | M2.0 status |
+| --- | --- |
+| Location mode | ✅ removed (tab, search, GPS, radius, `locationCenter`, `radiusKm`) |
+| Geocoding | ✅ removed; no Nominatim requests or geolocation permission |
+| Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
+| Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
+| Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
+| Tests | ✅ 321 tests, including Toolbar perimeter-only copy/controls |
+| Build | ✅ `npm run build` passes |
+| Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
+
+Still deferred within area selection:
+- Auto-fit to the perimeter (M2/M3).
+- Drag-to-draw and a pre-commit preview (F2.4).
+- Workspace persistence of the last perimeter (M3).
+- The future directional View mode and cone (M3.5).
+
 ---
 
 ## 4. Target features (restart)
 
-> **Planned scope update (2026-11-12):** M2.0 removes location search, geocoding,
-> GPS, and the radius control; perimeter becomes the only selection mode and the
-> default. Treat F1, F2.1, F2.2, and F2.3 as superseded. M3.5 adds an optional
+> **Scope update (2026-11-12):** M2.0 has removed location search, geocoding,
+> GPS, and the radius control; perimeter is the only selection mode and the
+> default. F1, F2.1, F2.2, and F2.3 are superseded/removed. M3.5 adds an optional
 > directional “View” mode (pinned origin, second-click bearing, 60° cone,
 > persisted visibility distance); full scope is tracked in the plan roadmap.
 
-### F1 — Location workspace (P0) — ⛔ superseded by M2.0
+### F1 — Location workspace (removed in M2.0)
 
-A remembered working location so the app is useful immediately on return.
+**Status:** removed with location mode; there is no home center or radius
+workspace. The M3 workspace requirement now covers the last perimeter instead.
+This section is retained for history only.
 
-- **F1.1 Saved home center** — persist the last center (coordinates and display
-  label) locally.
-- **F1.2 Saved radius and mode** — persist radius and last selection mode.
-- **F1.3 Startup behavior** — restore the saved workspace if present; otherwise
-  show a focused prompt to search a place or use current location. Do not
-  silently query an arbitrary default city.
-- **F1.4 Change and clear** — clear the area without losing saved preferences;
-  search or use GPS to replace it.
-- **F1.5 No account** — no login, no server-side profile.
+### F2 — Area selection (perimeter current; location parts removed)
 
-**Acceptance:** reopening the app restores the previous area and starts fetching
-without user input; clearing shows an explicit empty map state.
-
-### F2 — Area selection (P0) — 🟡 F2.1–F2.3 superseded by M2.0
-
-- **F2.1 Place search**
-  - Debounced input with in-flight request cancellation.
-  - Clear "no results" and network-error messages.
-  - Show the resolved place name in the UI.
-  - Follow the geocoder's usage policy.
-- **F2.2 Use my location** — request geolocation, handle denial and timeout with
-  actionable messages.
-- **F2.3 Radius control** — slider plus numeric readout; support 25–500 km with a
-  25 km step and a 150 km default. (Current minimum is 50 km.)
-- **F2.4 Perimeter drawing** — two-click rectangle plus drag-to-draw; preview the
-  rectangle before commit; allow redraw and cancel.
-- **F2.5 Auto-fit** — fit the map to the circle or rectangle when the area
-  changes, with padding and a sensible maximum zoom.
+- **F2.1 Place search** — ❌ removed in M2.0 (no Nominatim/geocoding).
+- **F2.2 Use my location** — ❌ removed in M2.0 (no GPS prompt).
+- **F2.3 Radius control** — ❌ removed in M2.0.
+- **F2.4 Perimeter drawing** — two-click rectangle is current; drag-to-draw, a
+  pre-commit preview, and cancel are still targets.
+- **F2.5 Auto-fit** — fit the map to the rectangle when the area changes, with
+  padding and a sensible maximum zoom. Still a target.
 - **F2.6 Area validation** — reject degenerate, antimeridian-crossing, or
-  oversized boxes with a clear message.
-- **F2.7 Persistence** — restore the last area on load.
+  oversized boxes with a clear message. Still a target.
+- **F2.7 Persistence** — restore the last perimeter on load (M3).
+
+**Acceptance:** drawing a rectangle visibly frames the area and triggers exactly
+one fetch for that area.
 
 **Acceptance:** selecting a place or drawing a rectangle visibly frames the area
 on the map and triggers a fetch exactly once for that area.
@@ -571,15 +582,19 @@ interface FlightProvider {
 
 **Current M1 store:** `window-seat:settings:v1` contains only
 `{ autoRefreshMs }`; budget usage is in `window-seat:budget:v1`. The workspace
-schema below is the M3 target (with location/radius fields superseded by M2.0).
+schema below is the M3 target; location/radius fields were removed with M2.0.
 
 ```ts
-interface StoredSettingsV1 {
+interface StoredWorkspaceV1 {
   version: 1;
-  home: { lat: number; lng: number; label: string } | null;
-  radiusKm: number;
-  mode: 'location' | 'perimeter';
   perimeter: BoundingBox | null;
+  mode: 'perimeter' | 'direction';
+  direction: {
+    origin: { lat: number; lng: number };
+    bearingDeg: number;
+    angleDeg: number;
+    visibilityKm: number;
+  } | null;
   units: 'aviation' | 'metric';
   theme: 'dark' | 'light';
   refreshMs: number;
@@ -615,6 +630,17 @@ explanations.
 
 ### 7.2 Smoothness
 
+**Implemented in M2.3–M2.5:** dead-reckoned marker motion with a 30 s/cadence
+cap, eased snapshot correction, bounded observed trails with a distinct
+projected segment, smooth rotation, altitude colours, selection emphasis, stale
+dimming, and reduced-motion fallback. Decluttering remains.
+
+**Measured 2026-11-12 (`npm run perf:check`):** 300 synthetic aircraft in
+headless Chrome — 56.3 fps desktop / 56.9 fps mobile, max marker jump under
+3 px, heap growth under 12 MB, and bounded DOM/trail counts. 50–100 aircraft hold
+60 fps; the strict 60 fps target is not fully reached at 300 in headless
+software rendering.
+
 - 60 fps animation target on desktop; stable 30 fps or better on mid-range mobile.
 - Position correction after a new snapshot completes within about 1 s and never
   visibly snaps.
@@ -632,19 +658,17 @@ explanations.
 
 ### 7.4 Privacy
 
-- Geolocation is requested only on user action; coordinates are stored locally.
-  **M2.0 removes geolocation entirely.**
+- **Geolocation is no longer used** (removed in M2.0).
 - No analytics or tracking scripts by default.
-- Third-party requests are limited to the map tiles, geocoder, and flight
-  provider; document them. **M2.0 removes the geocoder.**
+- Third-party requests are limited to map tiles and the flight provider; the
+  geocoder was removed in M2.0.
 - A privacy note explains what leaves the device.
 
 ### 7.5 Browser support
 
 - Current evergreen Chrome, Firefox, Safari, and Edge.
 - iOS Safari and Android Chrome for the mobile layout.
-- Graceful behavior when storage is unavailable. Geolocation handling becomes
-  irrelevant after M2.0 removes it.
+- Graceful behavior when storage is unavailable. Geolocation is not used.
 
 ### 7.6 Reliability
 
@@ -659,8 +683,9 @@ area changes.
 
 - TypeScript strict mode. ✅
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
-  🟡 parsing, policy/budget, settings, hook, and component tests are in place
-  (261 tests); interpolation tests arrive with M2.
+  🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
+  trail, visual-state, and performance-harness coverage are in place (321
+  tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
 
@@ -670,16 +695,18 @@ area changes.
 
 | Feature | Current | Target | Priority |
 | --- | --- | --- | --- |
-| Saved home and radius | ⛔ | F1.1–F1.2 | P0 |
-| Restore workspace on load | ⛔ | F1.3 | P0 |
-| Place search | 🟡 | F2.1 | P0 |
-| GPS location | 🟡 | F2.2 | P1 |
-| Radius control | ✅ | F2.3 | P1 |
-| Perimeter drawing | 🟡 | F2.4 | P1 |
+| Saved perimeter workspace | ⛔ | M3 | P1 |
+| Restore workspace on load | ⛔ | M3 | P1 |
+| Place search | Removed (M2.0) | — | — |
+| GPS location | Removed (M2.0) | — | — |
+| Radius control | Removed (M2.0) | — | — |
+| Perimeter drawing | ✅ two-click; drag/preview pending | F2.4 | P1 |
 | Auto-fit map | ⛔ | F2.5 | P1 |
+| Directional View mode | ⛔ | M3.5 | P2 |
 | Smooth marker motion | ⛔ | F3.3 | P0 |
-| Aircraft trails | ⛔ | F3.4 | P1 |
-| Altitude styling / decluttering | ⛔ | F3.2 / F3.6 | P1 |
+| Aircraft trails | ✅ observed 120 s + projected segment | F3.4 | P1 |
+| Altitude styling / marker legibility | ✅ 28 px north-up SVG + halo | F3.2 | P1 |
+| Decluttering / clustering | ⛔ | F3.6 | P1 |
 | Follow selected aircraft | ⛔ | F3.5 | P2 |
 | Consistent ground traffic | 🟡 | F3.7 | P1 |
 | Sort / filter / search | ⛔ | F4.1–F4.3 | P1 |
@@ -697,7 +724,7 @@ area changes.
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | 🟡 labels/focus started | F9 | P2 |
-| Tests / lint / CI | 🟡 261 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 321 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -711,16 +738,16 @@ area changes.
 | A4 | High | Data | In-flight requests are not cancelled when the area changes; overlapping timers are possible. | **Resolved 2026-11-12 (M1.3–M1.4):** latest-wins coordinator aborts stale requests; single pending poll; visibility pause. |
 | A5 | High | Map | Positions jump on every refresh; no interpolation or trails. | Smoothing layer (F3.3–F3.4). |
 | A6 | High | Map | Marker icons are recreated on every render. | Stable icon instances and memoization (F8.1). |
-| A7 | Medium | Map | Map never fits to the selected area; starts at London regardless of search. | Auto-fit (F2.5). |
+| A7 | Medium | Map | Map never fits to the selected area; starts at London regardless of the drawn perimeter. | Auto-fit (F2.5). |
 | A8 | Medium | Map/list | Map shows on-ground aircraft; the list filters them out. | Unify behavior or add an explicit filter (F3.7). |
 | A9 | Medium | Detail | Selected aircraft vanishes when it leaves the feed. | Sticky last-known detail with stale state (F4.4). |
 | A10 | Medium | UI | Empty state says "Set a search area" even when an area is set with no aircraft. | **Resolved 2026-11-12 (M1.5):** `flightListState` distinguishes no-area, loading, unavailable, and genuinely empty states. |
-| A11 | Medium | Geocoding | No debounce, cancellation, or provider-policy headers. | **Moot planned (M2.0):** location search/geocoding is being removed in favour of perimeter-only selection. |
+| A11 | Medium | Geocoding | No debounce, cancellation, or provider-policy headers. | **Resolved (M2.0):** geocoding removed with location mode; no Nominatim dependency. |
 | A12 | Medium | Config | No environment/config mechanism; dev-only proxy; no production strategy. | **Resolved 2026-11-12 (M1.1):** typed `config.ts`, `.env.local` + `.env.example`, Vite OAuth2 proxy; production remains out of scope. |
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 261 tests and production build added; favicon and lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 321 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
 
@@ -735,8 +762,6 @@ area changes.
   OpenSky-only.
 - Whether to request OpenSky `extended=1` for aircraft category data.
 - Whether to keep the FlightRadar24 link as the only external lookup.
-- ~~Default radius~~ **Moot planned (M2.0):** the radius control is removed with
-  location mode.
 - Maximum aircraft count to render before clustering or capping.
 - Whether a light theme is in scope for the restart or later.
 - Directional View mode: keep the 60° cone fixed or make the angle configurable?
@@ -747,7 +772,7 @@ area changes.
 - Per-aircraft distance, bearing, elevation angle, and overhead-pass prediction
   in the core list/detail UI. **Planned exception (M3.5):** the directional View
   cone described in section 1.4.
-- Location search, geocoding, GPS, and radius controls **after M2.0** (removed;
+- Location search, geocoding, GPS, and radius controls (removed in M2.0;
   perimeter-only).
 - Accounts, sync, and server-side storage.
 - Production hosting, deployment, or a hosted proxy.
@@ -766,3 +791,4 @@ area changes.
 | 2026-11-12 | Local-only scope confirmed; local OAuth2 proxy implemented; fake credential removed; A1 resolved, A12 partially resolved. |
 | 2026-11-12 | **M1 implemented:** typed config/settings, provider model + OpenSky adapter/registry, cadence/credit budget, backoff, single-flight cancellation, last-good data, status banner, panel retention, data age/provider header, refresh-settings popover. A2–A4, A10, A12, A15 resolved; A16/A18 partially resolved. 261 tests, production build, and manual matrix pass. |
 | 2026-11-12 | **Planned scope:** M2.0 removes location/geocoding/GPS/radius (perimeter-only default); M3.5 adds an optional directional View mode with pinned origin, bearing cone, and persisted visibility distance. Non-goals updated to scope the cone exception. |
+| 2026-11-12 | **M2.0 implemented:** location tab/search/geocoding/GPS/radius removed; perimeter is the only mode and default; `FlightMap` simplified to the perimeter; copy and Toolbar tests updated. 265 tests, build, and a browser check (no off-scope requests, 136-aircraft fetch) pass. A11 resolved. Directional View (M3.5) remains future. |

@@ -59,15 +59,3 @@ export function msToKnots(ms: number): number {
 export function mToFeet(m: number): number {
   return Math.round(m * 3.28084);
 }
-
-/** Pad a bounding box around a lat/lng point by `radiusKm` kilometres */
-export function bboxFromPoint(lat: number, lng: number, radiusKm: number): BoundingBox {
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-  return {
-    lamin: lat - latDelta,
-    lamax: lat + latDelta,
-    lomin: lng - lngDelta,
-    lomax: lng + lngDelta,
-  };
-}

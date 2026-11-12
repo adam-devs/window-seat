@@ -28,7 +28,7 @@ describe('deriveFlightListState', () => {
       deriveFlightListState({ ...base, hasArea: false, status: 'idle' }),
     ).toEqual({
       kind: 'no-area',
-      message: 'Set a search area on the map to begin tracking.',
+      message: 'Draw a perimeter on the map to begin tracking.',
     });
   });
 

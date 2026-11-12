@@ -21,6 +21,25 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
+## Performance check
+
+With the dev server running, exercise the map with 300 synthetic aircraft:
+
+```bash
+npm run perf:check
+```
+
+The harness drives a synthetic OpenSky response, forces repeated snapshots,
+and reports desktop/mobile frame rate, the largest marker jump, heap growth, and
+bounded DOM/trail counts. It uses Google Chrome via Playwright:
+
+- `PERF_AIRCRAFT` (default 300)
+- `PERF_DESKTOP_FPS` / `PERF_MOBILE_FPS`
+- `PERF_MAX_JUMP_PX`
+- `PERF_MAX_HEAP_MB`
+- `PERF_BASE_URL` (default `http://localhost:5173/`)
+- `PERF_CHANNEL` (default `chrome`)
+
 ## Notes on the OpenSky API
 
 - The app is intended to run **locally** via `npm run dev`.

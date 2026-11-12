@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Aircraft } from '../data/types';
 import type { FlightStatus } from '../data/flightStatus';
 import { deriveFlightListState } from '../data/flightListState';
@@ -32,6 +33,51 @@ function verticalLabel(ms: number | null): string {
   const fpm = Math.round(ms * 196.85);
   return fpm >= 0 ? `+${fpm} fpm` : `${fpm} fpm`;
 }
+
+interface FlightRowProps {
+  flight: Aircraft;
+  selected: boolean;
+  onSelectFlight: (icao24: string | null) => void;
+}
+
+function flightRowPropsEqual(
+  previous: FlightRowProps,
+  next: FlightRowProps,
+): boolean {
+  const a = previous.flight;
+  const b = next.flight;
+  return (
+    previous.selected === next.selected &&
+    previous.onSelectFlight === next.onSelectFlight &&
+    a.icao24 === b.icao24 &&
+    a.callsign === b.callsign &&
+    a.origin_country === b.origin_country &&
+    a.baro_altitude === b.baro_altitude &&
+    a.velocity === b.velocity
+  );
+}
+
+const FlightRow = memo(function FlightRow({
+  flight,
+  selected,
+  onSelectFlight,
+}: FlightRowProps) {
+  return (
+    <div
+      className={`flight-row ${selected ? 'active' : ''}`}
+      onClick={() => onSelectFlight(selected ? null : flight.icao24)}
+    >
+      <div className="flight-row-main">
+        <span className="row-callsign">{flight.callsign ?? 'N/A'}</span>
+        <span className="row-country">{flight.origin_country ?? '—'}</span>
+      </div>
+      <div className="flight-row-sub">
+        <span>{altitudeLabel(flight.baro_altitude)}</span>
+        <span>{speedLabel(flight.velocity)}</span>
+      </div>
+    </div>
+  );
+}, flightRowPropsEqual);
 
 export function FlightPanel({
   flights,
@@ -130,20 +176,12 @@ export function FlightPanel({
           </p>
         )}
         {airborne.map((f) => (
-          <div
+          <FlightRow
             key={f.icao24}
-            className={`flight-row ${f.icao24 === selectedFlight ? 'active' : ''}`}
-            onClick={() => onSelectFlight(f.icao24 === selectedFlight ? null : f.icao24)}
-          >
-            <div className="flight-row-main">
-              <span className="row-callsign">{f.callsign ?? 'N/A'}</span>
-              <span className="row-country">{f.origin_country ?? '—'}</span>
-            </div>
-            <div className="flight-row-sub">
-              <span>{altitudeLabel(f.baro_altitude)}</span>
-              <span>{speedLabel(f.velocity)}</span>
-            </div>
-          </div>
+            flight={f}
+            selected={f.icao24 === selectedFlight}
+            onSelectFlight={onSelectFlight}
+          />
         ))}
       </div>
     </div>
