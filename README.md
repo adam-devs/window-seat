@@ -73,6 +73,23 @@ entries, and the mobile popover layout. It uses Google Chrome via Playwright:
 - `SAVED_BASE_URL` (default `http://localhost:5173/`)
 - `SAVED_CHANNEL` (default `chrome`)
 
+## Mobile/accessibility check
+
+With the dev server running, verify the keyboard flow, popover focus, mobile
+bottom sheet, map resizing, and text contrast:
+
+```bash
+npm run a11y:check
+```
+
+The harness uses Google Chrome via Playwright:
+
+- `A11Y_BASE_URL` (default `http://localhost:5173/`)
+- `A11Y_CHANNEL` (default `chrome`)
+
+Keyboard use: focus the map and use the arrow keys to pan; press Enter to place
+a perimeter corner or pin/aim the View at the map centre; press Escape to cancel.
+
 ## Notes on the OpenSky API
 
 - The app is intended to run **locally** via `npm run dev`.

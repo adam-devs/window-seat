@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { FlightPanel } from './FlightPanel';
@@ -48,6 +48,9 @@ interface RenderPanelOptions {
   status?: FlightStatus;
   mode?: SelectionMode;
   units?: 'aviation' | 'metric';
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 function renderPanel(options: RenderPanelOptions = {}) {
@@ -69,6 +72,9 @@ function panelElement(options: RenderPanelOptions = {}) {
       status={options.status ?? 'ready'}
       mode={options.mode ?? 'perimeter'}
       units={options.units ?? 'aviation'}
+      collapsible={options.collapsible ?? false}
+      collapsed={options.collapsed ?? false}
+      onToggleCollapsed={options.onToggleCollapsed}
     />
   );
 }
@@ -124,7 +130,7 @@ describe('FlightPanel', () => {
     expect(screen.getByText('via OpenSky Network')).toBeTruthy();
     expect(screen.queryByText('Loading nearby flights…')).toBeNull();
     expect(
-      screen.getByLabelText('Nearby aircraft').getAttribute('aria-busy'),
+      screen.getByLabelText('Flight results').getAttribute('aria-busy'),
     ).toBe('true');
     // A background refresh must not replace the list with a loading message.
     expect(screen.queryByText('Loading nearby aircraft…')).toBeNull();
@@ -254,6 +260,43 @@ describe('FlightPanel', () => {
 
     expect(screen.queryByText('ICAO24')).toBeNull();
     expect(row!.className).not.toContain('active');
+  });
+
+  it('renders rows as keyboard-operable buttons with pressed state', () => {
+    render(<SelectionHarness />);
+
+    const row = screen.getByRole('button', { name: /ABC123/ });
+    expect(row.getAttribute('aria-pressed')).toBe('false');
+
+    row.focus();
+    fireEvent.click(row);
+
+    expect(document.activeElement).toBe(row);
+    expect(row.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('ICAO24')).toBeTruthy();
+  });
+
+  it('collapses the mobile bottom sheet without losing the header', () => {
+    const onToggleCollapsed = vi.fn();
+    renderPanel({
+      collapsible: true,
+      collapsed: true,
+      onToggleCollapsed,
+    });
+
+    const toggle = screen.getByRole('button', {
+      name: 'Show aircraft list',
+    });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      (screen.getByText('ABC123').closest('.flight-panel-body') as HTMLElement)
+        .hidden,
+    ).toBe(true);
+    expect(screen.getByRole('heading', { name: 'WindowSeat' })).toBeTruthy();
+    expect(screen.getByText('2 aircraft in area')).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
   });
 
   it('toggles the same row off when clicked again', () => {

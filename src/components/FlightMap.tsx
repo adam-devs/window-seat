@@ -198,6 +198,74 @@ const TrailLine = memo(function TrailLine({
   previous.register === next.register &&
   previous.options === next.options);
 
+// ---- Sub-component: keep Leaflet sized to its container ----
+function MapResizer() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let frame = 0;
+    const invalidate = (): void => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false, pan: false });
+      });
+    };
+
+    // The flex layout can settle after Leaflet's initial measurement.
+    invalidate();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', invalidate);
+      return () => {
+        cancelAnimationFrame(frame);
+        window.removeEventListener('resize', invalidate);
+      };
+    }
+
+    const observer = new ResizeObserver(invalidate);
+    observer.observe(container);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [map]);
+
+  return null;
+}
+
+// ---- Sub-component: keyboard instructions and map labelling ----
+interface MapAccessibilityProps {
+  mode: SelectionMode;
+  hasPendingOrigin: boolean;
+}
+
+function MapAccessibility({
+  mode,
+  hasPendingOrigin,
+}: MapAccessibilityProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    const label =
+      mode === 'perimeter'
+        ? 'Map for drawing a perimeter'
+        : hasPendingOrigin
+          ? 'Map for aiming a view'
+          : 'Map for pinning a view';
+    container.setAttribute('aria-label', label);
+    container.setAttribute('aria-roledescription', 'interactive map');
+    container.setAttribute(
+      'aria-keyshortcuts',
+      'ArrowUp ArrowDown ArrowLeft ArrowRight Enter Escape',
+    );
+    container.setAttribute('aria-describedby', 'map-keyboard-instructions');
+  }, [map, mode, hasPendingOrigin]);
+
+  return null;
+}
+
 // ---- Sub-component: fit the map to the active perimeter ----
 interface PerimeterFitterProps {
   bbox: BoundingBox | null;
@@ -285,24 +353,54 @@ interface PerimeterDrawerProps {
 }
 
 function PerimeterDrawer({ onBoundsSelected }: PerimeterDrawerProps) {
+  const map = useMap();
   const [corner1, setCorner1] = useState<L.LatLng | null>(null);
+
+  const selectPoint = useCallback(
+    (point: L.LatLng) => {
+      if (!corner1) {
+        setCorner1(point);
+        return;
+      }
+      const bbox: BoundingBox = {
+        lamin: Math.min(corner1.lat, point.lat),
+        lamax: Math.max(corner1.lat, point.lat),
+        lomin: Math.min(corner1.lng, point.lng),
+        lomax: Math.max(corner1.lng, point.lng),
+      };
+      onBoundsSelected(bbox);
+      setCorner1(null);
+    },
+    [corner1, onBoundsSelected],
+  );
 
   useMapEvents({
     click(e) {
-      if (!corner1) {
-        setCorner1(e.latlng);
-      } else {
-        const bbox: BoundingBox = {
-          lamin: Math.min(corner1.lat, e.latlng.lat),
-          lamax: Math.max(corner1.lat, e.latlng.lat),
-          lomin: Math.min(corner1.lng, e.latlng.lng),
-          lomax: Math.max(corner1.lng, e.latlng.lng),
-        };
-        onBoundsSelected(bbox);
-        setCorner1(null);
-      }
+      selectPoint(e.latlng);
     },
   });
+
+  // Keyboard equivalent: arrow keys pan the Leaflet map; Enter places a
+  // corner at the current centre. Escape cancels an uncommitted corner.
+  useEffect(() => {
+    const container = map.getContainer();
+    function handleKeyDown(event: KeyboardEvent): void {
+      // Only the map itself owns these keys; links inside attribution or a
+      // popup must keep their normal Enter behavior.
+      if (event.target !== container) return;
+      if (event.key === 'Escape' && corner1) {
+        event.preventDefault();
+        setCorner1(null);
+        return;
+      }
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      selectPoint(map.getCenter());
+    }
+
+    container.addEventListener('keydown', handleKeyDown);
+    return () => container.removeEventListener('keydown', handleKeyDown);
+  }, [map, selectPoint, corner1]);
 
   return corner1 ? (
     <Marker
@@ -332,6 +430,7 @@ function DirectionPicker({
   onPendingOriginChange,
   onDirectionChange,
 }: DirectionPickerProps) {
+  const map = useMap();
   // Keep the last cone shape so re-pinning preserves the angle/distance while
   // the direction itself is temporarily cleared for the bearing step.
   const lastOptions = useRef<
@@ -344,13 +443,8 @@ function DirectionPicker({
     };
   }
 
-  useMapEvents({
-    click(event) {
-      const point: DirectionalOrigin = {
-        latitude: event.latlng.lat,
-        longitude: event.latlng.lng,
-      };
-
+  const selectPoint = useCallback(
+    (point: DirectionalOrigin) => {
       if (!pendingOrigin) {
         if (direction) onDirectionChange(null);
         onPendingOriginChange(point);
@@ -367,7 +461,46 @@ function DirectionPicker({
       onPendingOriginChange(null);
       onDirectionChange(next);
     },
+    [
+      pendingOrigin,
+      direction,
+      onDirectionChange,
+      onPendingOriginChange,
+    ],
+  );
+
+  useMapEvents({
+    click(event) {
+      selectPoint({
+        latitude: event.latlng.lat,
+        longitude: event.latlng.lng,
+      });
+    },
   });
+
+  // Keyboard equivalent: Enter pins the origin or aims the cone at the map
+  // centre. Escape discards an uncommitted origin.
+  useEffect(() => {
+    const container = map.getContainer();
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.target !== container) return;
+      if (event.key === 'Escape' && pendingOrigin) {
+        event.preventDefault();
+        onPendingOriginChange(null);
+        return;
+      }
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      const centre = map.getCenter();
+      selectPoint({
+        latitude: centre.lat,
+        longitude: centre.lng,
+      });
+    }
+
+    container.addEventListener('keydown', handleKeyDown);
+    return () => container.removeEventListener('keydown', handleKeyDown);
+  }, [map, selectPoint, pendingOrigin, onPendingOriginChange]);
 
   const origin = pendingOrigin ?? direction?.origin ?? null;
   if (!origin) return null;
@@ -684,6 +817,12 @@ export function FlightMap({
       zoom={7}
       style={{ height: '100%', width: '100%' }}
     >
+      <MapResizer />
+      <MapAccessibility
+        mode={mode}
+        hasPendingOrigin={pendingDirectionOrigin !== null}
+      />
+
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

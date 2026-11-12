@@ -26,6 +26,7 @@ import {
 } from '../settings';
 import { unitsLabel } from '../data/units';
 import type { UnitSystem } from '../workspace';
+import { trapDialogFocus } from './dialogFocus';
 
 interface SettingsPopoverProps {
   autoRefreshMs: number;
@@ -84,6 +85,10 @@ export function SettingsPopover({
       if (!wrapRef.current?.contains(event.target as Node)) close();
     }
     function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Tab') {
+        trapDialogFocus(event, dialogRef.current);
+        return;
+      }
       if (event.key !== 'Escape') return;
       event.preventDefault();
       close();
@@ -119,7 +124,8 @@ export function SettingsPopover({
         title="Settings"
         onClick={() => setOpen((value) => !value)}
       >
-        <span aria-hidden="true">⚙</span> Settings
+        <span aria-hidden="true">⚙</span>
+        <span className="btn-label">Settings</span>
       </button>
 
       {open && (

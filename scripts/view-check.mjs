@@ -158,7 +158,11 @@ async function waitForRows(page, expected) {
 }
 
 async function instruction(page) {
-  return (await page.locator('.perimeter-instructions span').textContent())?.trim();
+  return (
+    await page
+      .locator('.perimeter-instructions span[aria-live="polite"]')
+      .textContent()
+  )?.trim();
 }
 
 async function waitForRequestStart(tracking, count) {
