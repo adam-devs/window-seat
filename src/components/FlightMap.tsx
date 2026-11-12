@@ -9,7 +9,8 @@ import {
   useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
-import type { StateVector, BoundingBox } from '../types';
+import type { BoundingBox } from '../types';
+import type { Aircraft } from '../data/types';
 import { msToKnots, mToFeet } from '../utils/opensky';
 
 // Fix Leaflet's default icon path issue with bundlers
@@ -67,7 +68,7 @@ function PerimeterDrawer({ onBoundsSelected }: PerimeterDrawerProps) {
 
 // ---- Main FlightMap ----
 interface FlightMapProps {
-  flights: StateVector[];
+  flights: Aircraft[];
   bbox: BoundingBox | null;
   radiusKm: number;
   mode: 'location' | 'perimeter';
@@ -119,32 +120,30 @@ export function FlightMap({
       )}
 
       {/* Plane markers */}
-      {flights.map((flight) =>
-        flight.latitude !== null && flight.longitude !== null ? (
-          <Marker
-            key={flight.icao24}
-            position={[flight.latitude, flight.longitude]}
-            icon={planeIcon(flight.true_track, flight.icao24 === selectedFlight)}
-            eventHandlers={{
-              click: () => onSelectFlight(flight.icao24 === selectedFlight ? null : flight.icao24),
-            }}
-          >
-            <Popup>
-              <strong>{flight.callsign ?? 'Unknown callsign'}</strong>
-              <br />
-              {flight.origin_country}
-              <br />
-              {flight.baro_altitude !== null
-                ? `Alt: ${mToFeet(flight.baro_altitude).toLocaleString()} ft`
-                : 'Altitude: unknown'}
-              <br />
-              {flight.velocity !== null
-                ? `Speed: ${msToKnots(flight.velocity)} kts`
-                : ''}
-            </Popup>
-          </Marker>
-        ) : null
-      )}
+      {flights.map((flight) => (
+        <Marker
+          key={flight.icao24}
+          position={[flight.latitude, flight.longitude]}
+          icon={planeIcon(flight.true_track, flight.icao24 === selectedFlight)}
+          eventHandlers={{
+            click: () => onSelectFlight(flight.icao24 === selectedFlight ? null : flight.icao24),
+          }}
+        >
+          <Popup>
+            <strong>{flight.callsign ?? 'Unknown callsign'}</strong>
+            <br />
+            {flight.origin_country ?? 'Unknown country'}
+            <br />
+            {flight.baro_altitude !== null
+              ? `Alt: ${mToFeet(flight.baro_altitude).toLocaleString()} ft`
+              : 'Altitude: unknown'}
+            <br />
+            {flight.velocity !== null
+              ? `Speed: ${msToKnots(flight.velocity)} kts`
+              : ''}
+          </Popup>
+        </Marker>
+      ))}
     </MapContainer>
   );
 }

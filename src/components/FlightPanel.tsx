@@ -1,8 +1,8 @@
-import type { StateVector } from '../types';
+import type { Aircraft } from '../data/types';
 import { msToKnots, mToFeet } from '../utils/opensky';
 
 interface FlightPanelProps {
-  flights: StateVector[];
+  flights: Aircraft[];
   selectedFlight: string | null;
   onSelectFlight: (icao24: string | null) => void;
   loading: boolean;
@@ -61,7 +61,7 @@ export function FlightPanel({
           </div>
           <div className="detail-grid">
             <DetailItem label="ICAO24" value={selected.icao24.toUpperCase()} />
-            <DetailItem label="Country" value={selected.origin_country} />
+            <DetailItem label="Country" value={selected.origin_country ?? '—'} />
             <DetailItem label="Altitude" value={altitudeLabel(selected.baro_altitude)} />
             <DetailItem label="Speed" value={speedLabel(selected.velocity)} />
             <DetailItem label="Vertical" value={verticalLabel(selected.vertical_rate)} />
@@ -93,7 +93,7 @@ export function FlightPanel({
           >
             <div className="flight-row-main">
               <span className="row-callsign">{f.callsign ?? 'N/A'}</span>
-              <span className="row-country">{f.origin_country}</span>
+              <span className="row-country">{f.origin_country ?? '—'}</span>
             </div>
             <div className="flight-row-sub">
               <span>{altitudeLabel(f.baro_altitude)}</span>

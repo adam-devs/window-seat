@@ -3,6 +3,7 @@ import { FlightMap } from './components/FlightMap';
 import { FlightPanel } from './components/FlightPanel';
 import { Toolbar } from './components/Toolbar';
 import { useFlights } from './hooks/useFlights';
+import { useSettings } from './hooks/useSettings';
 import { bboxFromPoint } from './utils/opensky';
 import type { BoundingBox, SelectionMode } from './types';
 import './app.css';
@@ -36,7 +37,11 @@ export default function App() {
     [mode, locationCenter, radiusKm, perimeterBbox],
   );
 
-  const { flights, loading, error, lastUpdated, refresh } = useFlights(activeBbox);
+  const { settings } = useSettings();
+  const { flights, loading, error, lastUpdated, refresh } = useFlights(
+    activeBbox,
+    { autoRefreshMs: settings.autoRefreshMs },
+  );
 
   // ---- Handlers ----
   const handleLocationSearch = useCallback(async (query: string) => {
