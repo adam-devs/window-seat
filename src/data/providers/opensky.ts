@@ -113,6 +113,11 @@ function parseRetryAfterMs(headers: Headers): number | undefined {
 
   const retryAfter = headers.get('retry-after');
   if (!retryAfter) return undefined;
+
+  // `Retry-After` may be delta-seconds or an HTTP date.
+  const delta = Number(retryAfter);
+  if (Number.isFinite(delta)) return Math.max(0, Math.round(delta * 1000));
+
   const date = Date.parse(retryAfter);
   return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
