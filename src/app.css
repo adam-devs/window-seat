@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ============================================================
-   WindowSeat theme tokens
+   Window Seat theme tokens
    Light by default, following the OS. Colours are space-separated
    RGB channels so Tailwind opacity modifiers keep working.
    ============================================================ */
@@ -186,6 +186,13 @@
 }
 .leaflet-control-attribution a {
   color: rgb(var(--accent-ink)) !important;
+}
+
+/* Clear the floating desktop flight panel. */
+@media (min-width: 701px) {
+  .leaflet-bottom.leaflet-right {
+    margin-right: 344px;
+  }
 }
 
 .leaflet-popup-content-wrapper,

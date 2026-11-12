@@ -392,6 +392,8 @@ async function runMobile(browser) {
     await page.waitForSelector('.leaflet-container');
     await page.waitForTimeout(400);
     await openSaved(page);
+    // Let the bottom-sheet entrance animation settle before measuring.
+    await page.waitForTimeout(300);
 
     const box = await page.locator('.saved-popover').boundingBox();
     assert.ok(box);

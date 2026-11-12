@@ -13,7 +13,8 @@
     "view:check": "node scripts/view-check.mjs",
     "saved:check": "node scripts/saved-check.mjs",
     "a11y:check": "node scripts/a11y-check.mjs",
-    "style:check": "node scripts/style-check.mjs"
+    "style:check": "node scripts/style-check.mjs",
+    "enrich:check": "node scripts/enrich-check.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.8",

@@ -16,6 +16,53 @@ const SCREENSHOT_DIR = new URL('../docs/screenshots/', import.meta.url);
 const WORKSPACE_KEY = 'window-seat:workspace:v2';
 const perimeter = { lamin: 50.8, lomin: -0.8, lamax: 52.2, lomax: 0.4 };
 
+const routePayload = {
+  response: {
+    aircraft: {
+      type: 'A321-231',
+      icao_type: 'A321',
+      manufacturer: 'Airbus',
+      registration: 'D-AIAA',
+    },
+    flightroute: {
+      callsign: 'WSE100',
+      airline: {
+        name: 'Jet2.com',
+        icao: 'EXS',
+        iata: 'LS',
+        country: 'United Kingdom',
+      },
+      origin: {
+        country_iso_name: 'ES',
+        country_name: 'Spain',
+        iata_code: 'LEI',
+        icao_code: 'LEAM',
+        municipality: 'Almería',
+        name: 'Almería Airport',
+      },
+    },
+  },
+};
+
+async function routeEnrichment(page) {
+  await page.route('**/adsbdb/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get('callsign') === 'WSE100') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(routePayload),
+      });
+    } else {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ response: 'unknown callsign' }),
+      });
+    }
+  });
+}
+
 function aircraft(index, heading = 40 + index * 54) {
   const nowSec = Math.floor(Date.now() / 1000);
   return [
@@ -108,6 +155,7 @@ async function captureState(browser, scheme, state) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(String(error)));
   await presetWorkspace(page);
+  await routeEnrichment(page);
 
   try {
     if (state === 'error') {
@@ -160,8 +208,14 @@ async function checkTokens(browser) {
     });
     const page = await context.newPage();
     await presetWorkspace(page);
+    await routeEnrichment(page);
     await routeSnapshot(page, [aircraft(0), aircraft(1)]);
     await open(page);
+    await page.waitForFunction(
+      () => document.querySelector('.row-flag')?.textContent?.includes('🇪🇸'),
+      null,
+      { timeout: 10_000 },
+    );
     await page.waitForFunction(
       () => document.querySelectorAll('.flight-row').length > 0,
     );
@@ -182,8 +236,53 @@ async function checkTokens(browser) {
         darkMap: document
           .querySelector('.leaflet-container')
           ?.classList.contains('map-dark'),
+        tileFilter: style('.leaflet-tile-pane').filter,
+        wordmark: document.querySelector('.panel-header h2')?.textContent?.trim(),
+        panelRect: document
+          .querySelector('.flight-panel')
+          ?.getBoundingClientRect()
+          .toJSON(),
+        viewport: { width: innerWidth, height: innerHeight },
       };
     });
+
+    if (scheme === 'light') {
+      // The OS theme can change while the app is open; the map must follow
+      // without a reload.
+      assert.equal(results.light.tileFilter, 'none');
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector('.leaflet-container')
+            ?.classList.contains('map-dark') &&
+          getComputedStyle(document.querySelector('.leaflet-tile-pane')).filter !==
+            'none',
+        null,
+        { timeout: 5_000 },
+      );
+      const switched = await page.evaluate(() => ({
+        body: getComputedStyle(document.body).backgroundColor,
+        darkMap: document
+          .querySelector('.leaflet-container')
+          ?.classList.contains('map-dark'),
+        filter: getComputedStyle(document.querySelector('.leaflet-tile-pane'))
+          .filter,
+      }));
+      assert.equal(switched.body, 'rgb(12, 10, 9)');
+      assert.equal(switched.darkMap, true);
+      assert.notEqual(switched.filter, 'none');
+
+      await page.emulateMedia({ colorScheme: 'light' });
+      await page.waitForFunction(
+        () =>
+          !document
+            .querySelector('.leaflet-container')
+            ?.classList.contains('map-dark'),
+        null,
+        { timeout: 5_000 },
+      );
+    }
     await context.close();
   }
 
@@ -195,9 +294,25 @@ async function checkTokens(browser) {
   assert.match(results.dark.wordmarkFont, /Playfair Display/);
   assert.equal(results.light.darkMap, false);
   assert.equal(results.dark.darkMap, true);
+  assert.equal(results.light.wordmark, 'Window Seat');
+  assert.equal(results.dark.wordmark, 'Window Seat');
   assert.match(results.light.mapTiles, /tile\.openstreetmap\.org/);
   assert.match(results.dark.mapTiles, /tile\.openstreetmap\.org/);
-  console.log('theme tokens + map tiles: PASS');
+
+  for (const scheme of ['light', 'dark']) {
+    const { panelRect, viewport } = results[scheme];
+    assert.ok(panelRect, `${scheme} panel should have a box`);
+    assert.ok(panelRect.x > 0, `${scheme} panel should clear the map edge`);
+    assert.ok(
+      panelRect.x + panelRect.width <= viewport.width - 8,
+      `${scheme} panel should keep a right gap`,
+    );
+    assert.ok(
+      panelRect.y + panelRect.height <= viewport.height - 8,
+      `${scheme} panel should keep a bottom gap`,
+    );
+  }
+  console.log('theme tokens + map tiles + floating panel: PASS');
 }
 
 async function checkCardinalHeadings(browser) {

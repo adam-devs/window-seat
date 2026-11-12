@@ -147,6 +147,16 @@ export function WifiOffIcon(props: IconProps) {
   );
 }
 
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.6 3.1 2.6 13.9 0 17M12 3.5c-2.6 3.1-2.6 13.9 0 17" />
+    </Icon>
+  );
+}
+
 export function ClockIcon(props: IconProps) {
   return (
     <Icon {...props}>

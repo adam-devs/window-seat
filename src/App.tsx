@@ -350,7 +350,7 @@ export default function App() {
         refreshing={loading}
       />
 
-      <div className="main flex min-h-0 flex-1 max-[700px]:flex-col">
+      <div className="main relative flex min-h-0 flex-1 max-[700px]:flex-col">
         <div className="map-container relative min-h-0 flex-1 max-[700px]:min-h-[180px]">
           <p id="map-keyboard-instructions" className="sr-only">
             Use the arrow keys to move the map. Press Enter to select the map
@@ -375,6 +375,7 @@ export default function App() {
             refreshIntervalMs={workspace.autoRefreshMs}
             fitToken={fitToken}
             units={workspace.units}
+            rightInsetPx={isMobile ? 0 : 364}
           />
         </div>
 

@@ -1,4 +1,11 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { Aircraft } from '../data/types';
 import type { FlightStatus } from '../data/flightStatus';
 import type { SelectionMode } from '../types';
@@ -16,7 +23,23 @@ import {
   formatVerticalRate,
 } from '../data/units';
 import type { UnitSystem } from '../workspace';
-import { CloseIcon, PlaneIcon, SearchIcon } from './icons';
+import {
+  aircraftTypeLabel,
+  airlineCodeLabel,
+  airlineNameLabel,
+  countryCodeToFlag,
+  idleEnrichment,
+  originAirportLabel,
+  originCityLabel,
+  type FlightEnrichment,
+} from '../data/flightEnrichment';
+import { useFlightEnrichment } from '../hooks/useFlightEnrichment';
+import {
+  CloseIcon,
+  GlobeIcon,
+  PlaneIcon,
+  SearchIcon,
+} from './icons';
 import { cx, focusRing, inputBase } from './ui';
 
 interface FlightPanelProps {
@@ -43,6 +66,7 @@ interface FlightRowProps {
   selected: boolean;
   onSelectFlight: (icao24: string | null) => void;
   units: UnitSystem;
+  enrichment: FlightEnrichment;
 }
 
 function flightRowPropsEqual(
@@ -55,6 +79,7 @@ function flightRowPropsEqual(
     previous.selected === next.selected &&
     previous.onSelectFlight === next.onSelectFlight &&
     previous.units === next.units &&
+    previous.enrichment === next.enrichment &&
     a.icao24 === b.icao24 &&
     a.callsign === b.callsign &&
     a.origin_country === b.origin_country &&
@@ -69,7 +94,12 @@ const FlightRow = memo(function FlightRow({
   selected,
   onSelectFlight,
   units,
+  enrichment,
 }: FlightRowProps) {
+  const flag = countryCodeToFlag(enrichment.origin?.countryCode);
+  const city = originCityLabel(enrichment.origin);
+  const originLabel = enrichment.origin?.country ?? city;
+
   return (
     <button
       type="button"
@@ -80,14 +110,35 @@ const FlightRow = memo(function FlightRow({
           : 'border-l-transparent hover:bg-surface-2',
       )}
       aria-pressed={selected}
+      data-icao24={flight.icao24}
+      data-callsign={flight.callsign ?? ''}
       onClick={() => onSelectFlight(selected ? null : flight.icao24)}
     >
+      {originLabel && (
+        <span className="sr-only">From {originLabel}. </span>
+      )}
       <span className="flight-row-main flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="row-callsign truncate font-mono text-sm font-semibold tracking-wide text-ink">
-          {flight.callsign ?? 'N/A'}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span
+            className="row-flag inline-flex h-4 w-5 shrink-0 items-center justify-center text-sm leading-none"
+            aria-hidden="true"
+            title={originLabel ? `From ${originLabel}` : 'Origin unknown'}
+          >
+            {flag ?? (
+              <GlobeIcon
+                className={cx(
+                  'h-3.5 w-3.5 text-faint',
+                  enrichment.status === 'loading' && 'animate-pulse',
+                )}
+              />
+            )}
+          </span>
+          <span className="row-callsign truncate font-mono text-sm font-semibold tracking-wide text-ink">
+            {flight.callsign ?? 'N/A'}
+          </span>
         </span>
         <span className="row-country truncate text-[11px] text-muted">
-          {flight.origin_country ?? '—'}
+          {city ?? flight.origin_country ?? '—'}
         </span>
       </span>
       <span className="flight-row-sub flex shrink-0 flex-col items-end gap-0.5 font-mono text-[11px] tabular-nums text-muted">
@@ -128,6 +179,8 @@ export function FlightPanel({
   const [lastKnownSelected, setLastKnownSelected] = useState<Aircraft | null>(
     null,
   );
+  const { getEnrichment, requestEnrichment } = useFlightEnrichment();
+  const listRef = useRef<HTMLDivElement>(null);
 
   const airborne = flights.filter((flight) => !flight.on_ground);
   const onGround = flights.filter((flight) => flight.on_ground);
@@ -137,6 +190,28 @@ export function FlightPanel({
     selectedFromFlights ??
     (lastKnownSelected?.icao24 === selectedFlight ? lastKnownSelected : null);
   const lostContact = selected !== null && selectedFromFlights === null;
+  const selectedEnrichment = selected
+    ? getEnrichment(selected.icao24, selected.callsign)
+    : idleEnrichment();
+  const selectedFlag = countryCodeToFlag(
+    selectedEnrichment.origin?.countryCode,
+  );
+  const selectedOriginCity = originCityLabel(selectedEnrichment.origin);
+  const selectedOriginAirport = originAirportLabel(selectedEnrichment.origin);
+  const selectedAircraftType = aircraftTypeLabel(
+    selectedEnrichment.aircraft,
+  );
+  const selectedAirlineName = airlineNameLabel(selectedEnrichment.airline);
+  const selectedAirlineHint =
+    [
+      airlineCodeLabel(selectedEnrichment.airline),
+      selectedEnrichment.airline?.country,
+    ]
+      .filter(Boolean)
+      .join(' · ') || null;
+  const enrichmentPending =
+    selectedEnrichment.status === 'idle' ||
+    selectedEnrichment.status === 'loading';
 
   useEffect(() => {
     if (!selectedFlight) {
@@ -146,10 +221,51 @@ export function FlightPanel({
     if (selectedFromFlights) setLastKnownSelected(selectedFromFlights);
   }, [selectedFlight, selectedFromFlights]);
 
+  // Selecting a marker-selected aircraft should enrich even when its row is
+  // outside the scroll viewport.
+  useEffect(() => {
+    if (!selected) return;
+    requestEnrichment(selected.icao24, selected.callsign);
+  }, [selected?.icao24, selected?.callsign, requestEnrichment]);
+
   const visibleFlights = useMemo(
     () => filterAndSortFlights(flights, { query, sort, filter }),
     [flights, query, sort, filter],
   );
+
+  // Enrich only rows near the visible scroll area. This keeps a busy area from
+  // turning into hundreds of metadata requests.
+  useEffect(() => {
+    const root = listRef.current;
+    if (!root) return;
+    const rows = Array.from(
+      root.querySelectorAll<HTMLElement>('[data-icao24]'),
+    );
+    if (rows.length === 0) return;
+
+    const requestFor = (row: HTMLElement): void => {
+      const icao24 = row.dataset.icao24;
+      if (icao24) {
+        requestEnrichment(icao24, row.dataset.callsign || null);
+      }
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      rows.forEach(requestFor);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) requestFor(entry.target as HTMLElement);
+        }
+      },
+      { root, rootMargin: '200px 0px' },
+    );
+    rows.forEach((row) => observer.observe(row));
+    return () => observer.disconnect();
+  }, [visibleFlights, requestEnrichment]);
   const filtersActive =
     query.trim() !== '' || filter !== DEFAULT_FLIGHT_VIEW.filter;
   const count =
@@ -198,7 +314,7 @@ export function FlightPanel({
     <aside
       id="nearby-aircraft"
       className={cx(
-        'flight-panel flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-border bg-surface max-[700px]:w-full max-[700px]:max-h-[50dvh] max-[700px]:rounded-t-2xl max-[700px]:border-l-0 max-[700px]:border-t max-[700px]:pb-[env(safe-area-inset-bottom)] max-[700px]:shadow-2xl',
+        'flight-panel absolute bottom-3 right-3 top-3 z-[900] flex w-[320px] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-pop max-[700px]:static max-[700px]:bottom-auto max-[700px]:right-auto max-[700px]:top-auto max-[700px]:z-auto max-[700px]:max-h-[50dvh] max-[700px]:w-full max-[700px]:rounded-b-none max-[700px]:rounded-t-2xl max-[700px]:border-x-0 max-[700px]:border-b-0 max-[700px]:pb-[env(safe-area-inset-bottom)] max-[700px]:shadow-2xl',
         collapsed &&
           'flight-panel--collapsed max-[700px]:max-h-none',
       )}
@@ -218,7 +334,7 @@ export function FlightPanel({
         <div className="panel-title-row flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-display text-xl font-semibold tracking-tight text-ink">
             <PlaneIcon className="h-5 w-5 text-accent" />
-            WindowSeat
+            Window Seat
           </h2>
           {collapsible && onToggleCollapsed && (
             <button
@@ -397,6 +513,58 @@ export function FlightPanel({
               aria-hidden="true"
             />
             <div className="detail-grid grid grid-cols-2 gap-x-3 gap-y-2">
+              <DetailItem
+                label="Likely from"
+                className="col-span-2 border-b border-dashed border-border pb-2"
+                value={
+                  selectedOriginCity ? (
+                    <span className="flex items-center gap-1.5">
+                      {selectedFlag ? (
+                        <span className="text-sm" aria-hidden="true">
+                          {selectedFlag}
+                        </span>
+                      ) : (
+                        <GlobeIcon
+                          className="h-3.5 w-3.5 shrink-0 text-faint"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="truncate">{selectedOriginCity}</span>
+                    </span>
+                  ) : enrichmentPending ? (
+                    'Looking up…'
+                  ) : (
+                    'Unavailable'
+                  )
+                }
+                hint={
+                  selectedOriginAirport ??
+                  (enrichmentPending
+                    ? 'Checking scheduled route…'
+                    : 'No scheduled route found')
+                }
+              />
+              <DetailItem
+                label="Aircraft"
+                className="col-span-2 border-b border-dashed border-border pb-2"
+                value={
+                  selectedAircraftType ??
+                  (enrichmentPending ? 'Looking up…' : 'Unavailable')
+                }
+                hint={
+                  selectedEnrichment.aircraft?.icaoType
+                    ? `ICAO type ${selectedEnrichment.aircraft.icaoType}`
+                    : null
+                }
+              />
+              {selectedAirlineName && (
+                <DetailItem
+                  label="Airline"
+                  className="col-span-2 border-b border-dashed border-border pb-2"
+                  value={selectedAirlineName}
+                  hint={selectedAirlineHint}
+                />
+              )}
               <DetailItem label="ICAO24" value={selected.icao24.toUpperCase()} />
               <DetailItem label="Country" value={selected.origin_country ?? '—'} />
               <DetailItem label="Altitude" value={formatAltitude(selected.baro_altitude, units)} />
@@ -406,11 +574,15 @@ export function FlightPanel({
               <DetailItem label="Squawk" value={selected.squawk ?? '—'} />
               <DetailItem label="Status" value={selected.on_ground ? 'On ground' : 'Airborne'} />
             </div>
+            <p className="mt-2 text-[9px] leading-snug text-faint">
+              Likely scheduled route, airline, and aircraft type via adsbdb.com;
+              not confirmed by the observed track.
+            </p>
             <a
               href={`https://www.flightradar24.com/${selected.callsign ?? selected.icao24}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="fr24-link mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent-ink transition hover:underline"
+              className="fr24-link mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent-ink transition hover:underline"
             >
               View on FlightRadar24 ↗
             </a>
@@ -419,6 +591,7 @@ export function FlightPanel({
 
         {/* Flight list */}
         <div
+          ref={listRef}
           className="flight-list scroll-thin flex-1 overflow-y-auto py-1"
           aria-busy={loading}
           aria-label="Flight results"
@@ -442,6 +615,7 @@ export function FlightPanel({
               selected={f.icao24 === selectedFlight}
               onSelectFlight={onSelectFlight}
               units={units}
+              enrichment={getEnrichment(f.icao24, f.callsign)}
             />
           ))}
         </div>
@@ -450,15 +624,35 @@ export function FlightPanel({
   );
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function DetailItem({
+  label,
+  value,
+  hint,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="detail-item flex min-w-0 flex-col gap-0.5">
+    <div
+      className={cx(
+        'detail-item flex min-w-0 flex-col gap-0.5',
+        className,
+      )}
+    >
       <span className="detail-label text-[10px] uppercase tracking-[0.08em] text-muted">
         {label}
       </span>
       <span className="detail-value truncate font-mono text-xs font-semibold tabular-nums text-ink">
         {value}
       </span>
+      {hint && (
+        <span className="detail-hint truncate text-[10px] font-normal text-muted">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }

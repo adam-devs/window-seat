@@ -1,9 +1,9 @@
-# WindowSeat — Feature Specification
+# Window Seat — Feature Specification
 
 > **Status:** M1 and M2.0 implemented; M2.1 and later planned
 > **Last updated:** 2026-11-12
-> **Current implementation:** M1 + M2.0 as of 2026-11-12 (branded "WindowSeat")
-> **Target product name:** WindowSeat
+> **Current implementation:** M1 + M2.0 as of 2026-11-12 (branded "Window Seat")
+> **Target product name:** Window Seat
 
 This document describes both what the app does today and what it should do next.
 The pre-restart inventory in section 3 is retained as a baseline; sections 3.8
@@ -17,7 +17,7 @@ explicitly.
 
 ### 1.1 Purpose
 
-WindowSeat is a lightweight web app for seeing aircraft around a chosen
+Window Seat is a lightweight web app for seeing aircraft around a chosen
 location — "what is flying near my window right now?"
 
 The app is a real-time viewer, not a flight planner or historical tracker. The
@@ -228,7 +228,7 @@ and styles, with no tests, linting, or deployment configuration.
 | Units toggle | ⛔ |
 | Mobile layout | 🟡 functional but cramped |
 | Accessibility | ✅ keyboard flow, focus, labels, live regions, AA contrast |
-| Tests / lint / CI | 🟡 479 tests ✅; lint/CI ⛔ |
+| Tests / lint / CI | 🟡 507 tests ✅; lint/CI ⛔ |
 
 ### 3.8 M1 as-built status (2026-11-12)
 
@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 479 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 507 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -277,7 +277,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 479 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 507 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -301,13 +301,13 @@ M4 makes the app usable on phones and without a mouse:
 | Focus | ✅ both popovers trap Tab, restore focus on close, and keep Escape/outside-click dismissal |
 | Contrast | ✅ key text ≥4.5:1 (≥3:1 large/bold) on the dark theme; muted/accent tokens adjusted |
 | Decluttering | ✅ no clustering: direction-aware markers, stale dimming, raised selection; trails are the future lever if load grows |
-| Tests | ✅ 479 Vitest tests |
+| Tests | ✅ 507 Vitest tests |
 | Browser checks | ✅ `npm run a11y:check` (keyboard, focus, mobile sheet/resize, contrast), plus `view:check` and `saved:check` |
 | Build | ✅ `npm run build` passes |
 
 ### 3.11 M5 as-built status (2026-11-12)
 
-M5 applies the WindowSeat visual identity without changing behavior:
+M5 applies the Window Seat visual identity without changing behavior:
 
 | Area | M5 status |
 | --- | --- |
@@ -319,9 +319,31 @@ M5 applies the WindowSeat visual identity without changing behavior:
 | Map theme | ✅ light OSM; dark OSM tile pane filtered locally because CARTO now watermarks keyless requests; matching attribution |
 | Markers | ✅ 32 px north-up glyph, zoom-aware scale, theme-aware two-tone stroke/halo, selected ring, brighter stale treatment |
 | Docs | ✅ `docs/STYLE.md` records tokens, type scale, spacing, motion, components, map/marker decisions |
-| Tests | ✅ 479 Vitest tests |
+| Tests | ✅ 507 Vitest tests |
 | Browser checks | ✅ `npm run a11y:check` (both themes), `npm run style:check` (8 screenshots + cardinal headings), `view:check`, `saved:check` |
 | Screenshots | ✅ after: `docs/screenshots/{light,dark}-{live,empty,error,stale}.jpg`; before: `before-{live,empty,error,stale}.jpg` |
+| Build | ✅ `npm run build` passes |
+
+### 3.12 M5.1 as-built status (2026-11-12)
+
+Flight enrichment and layout polish:
+
+| Area | M5.1 status |
+| --- | --- |
+| Data source | ✅ keyless adsbdb via local `/adsbdb` proxy; no credentials |
+| Row flag | ✅ origin-airport country flag before callsign; neutral globe when unknown; fixed slot avoids layout shift |
+| Row origin text | ✅ origin city when known, otherwise the existing country text |
+| Detail card | ✅ “Likely from” city/airport/IATA–ICAO, aircraft manufacturer/type/ICAO type, and airline when available |
+| Accuracy label | ✅ scheduled/probable route caveat and adsbdb attribution |
+| Requests | ✅ visible-row `IntersectionObserver` + selected aircraft; dedupe, 2-concurrency queue, 8 s timeout |
+| Cache | ✅ bounded `window-seat:enrichment:v2`, 7-day ready TTL, 24-hour missing TTL, in-memory fallback |
+| Unknown/error states | ✅ neutral globe, “Unavailable” detail fields, transient-failure retry delay |
+| Desktop panel | ✅ rounded floating card with 12 px top/right/bottom gaps; map auto-fit and attribution clear it |
+| Mobile | ✅ existing bottom sheet retained |
+| Wordmark | ✅ “Window Seat” in the UI and title; package slug/storage keys unchanged |
+| Dark map | ✅ live OS theme change toggles the tile filter without reload |
+| Tests | ✅ 507 Vitest tests |
+| Browser checks | ✅ `npm run enrich:check`, `a11y:check`, `style:check`, `view:check`, `saved:check` |
 | Build | ✅ `npm run build` passes |
 
 ---
@@ -516,8 +538,9 @@ without a mouse.
 
 ## 5. Data source evaluation
 
-The current app depends on OpenSky only. The restart should isolate the provider
-behind an adapter and evaluate the options below. Limits and terms change
+Live positions come from OpenSky through an isolated provider adapter. M5.1
+adds **adsbdb** only as keyless metadata enrichment (origin airport/city and
+aircraft type); it is not a position provider. Limits and terms change
 frequently; confirm them during implementation.
 
 | Provider | Access / auth | Typical limits | Nearby-position query | Extra fields | Cost | Notes |
@@ -528,6 +551,7 @@ frequently; confirm them during implementation.
 | **ADS-B Exchange** | Paid API key | Plan-dependent | Bounding-box/point queries | Rich unfiltered data | Paid | Consider only if free sources prove insufficient |
 | **FlightAware AeroAPI** | Paid API key | Plan/credit-based | Flight lookup rather than bulk nearby positions | Schedules, routes, status | Paid | Not a drop-in replacement for nearby traffic |
 | **AirLabs** | Freemium key | Plan-dependent | Flight/schedule oriented | Routes, airports, schedules | Freemium | Better for enrichment than live positions |
+| **adsbdb** | No key; CORS-enabled | Fair use | Not a position feed | Aircraft type/registration and callsign route/airports | Free (MIT) | **Adopted in M5.1** for origin flags, city/airport, and aircraft type via the local proxy |
 
 ### 5.1 Evaluation criteria
 
@@ -754,7 +778,7 @@ area changes.
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
   🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
   trail, visual-state, list controls, and performance-harness coverage are in
-  place (479
+  place (507
   tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
@@ -768,6 +792,8 @@ area changes.
 | Saved perimeter workspace | ✅ last active + named library schema | M3.6 | P1 |
 | Restore workspace on load | ✅ perimeter/View, units, theme, refresh | M3.2 | P1 |
 | Saved areas/views library | ✅ save/restore/rename/delete, migration, robustness, verified | M3.6 | P1 |
+| Flight enrichment | ✅ adsbdb origin flag/city, airline, aircraft type, visible-row cache, neutral fallback | M5.1 | P1 |
+| Floating desktop panel | ✅ rounded card with top/right/bottom gaps; fit/attribution clearance | M5.1 | P2 |
 | Place search | Removed (M2.0) | — | — |
 | GPS location | Removed (M2.0) | — | — |
 | Radius control | Removed (M2.0) | — | — |
@@ -795,7 +821,7 @@ area changes.
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | ✅ keyboard flow, focus trap, labels/live regions, AA contrast | F9 | P2 |
-| Tests / lint / CI | 🟡 479 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 507 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -818,7 +844,7 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 479 tests, `public/plane.svg` favicon, and production build added; lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 507 tests, `public/plane.svg` favicon, and production build added; lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | **Resolved (M4):** collapsible bottom sheet + `ResizeObserver` map invalidation. |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Resolved 2026-11-12 (M4):** all controls labelled, visible focus rings, popover focus trap, keyboard map selection, live announcements, and AA contrast verified by `npm run a11y:check`. |
 
@@ -828,13 +854,15 @@ area changes.
 
 ### Open questions
 
-- Default units: aviation or metric?
-- Whether to add community providers after OpenSky proves insufficient, or stay
-  OpenSky-only.
+- ~~Default units: aviation or metric?~~ Resolved: both, persisted.
+- ~~Stay OpenSky-only?~~ Resolved: OpenSky for positions; adsbdb for metadata
+  enrichment. Community position providers remain deferred.
 - Whether to request OpenSky `extended=1` for aircraft category data.
-- Whether to keep the FlightRadar24 link as the only external lookup.
+- ~~Keep the FlightRadar24 link as the only external lookup?~~ Resolved: adsbdb
+  metadata is an additional lookup, with attribution.
 - Maximum aircraft count to render before clustering or capping.
-- Whether a light theme is in scope for the restart or later.
+- ~~Whether a light theme is in scope?~~ Resolved (M5): light default following
+  the OS, dark theme available.
 - Directional View mode: keep the 60° cone fixed or make the angle configurable?
 - Localization and time-zone display.
 
@@ -847,7 +875,9 @@ area changes.
   perimeter-only).
 - Accounts, sync, and server-side storage.
 - Production hosting, deployment, or a hosted proxy.
-- Route, airline, schedule, arrival, and departure enrichment.
+- Schedule status, confirmed arrival/departure times, and destination
+  verification. (Callsign-based route, airline, and aircraft-type enrichment is
+  implemented as an explicitly labelled probable route.)
 - Historical playback and long-term data retention.
 - Paid real-time feeds as a baseline requirement.
 - Native apps.
@@ -875,3 +905,4 @@ area changes.
 | 2026-11-12 | **M3.6.5 implemented:** Added `npm run saved:check` for the full two-perimeter/one-View lifecycle, restore/rename/delete persistence, v1 migration, cap/invalid entries, and mobile layout. Re-ran and stabilized `view:check`. 469 tests and both browser harnesses pass; typecheck and build pass. M3 and M3.6 are complete. |
 | 2026-11-12 | **M4 implemented:** Added the collapsible mobile bottom sheet, safe-area padding, and ResizeObserver map invalidation; keyboard-only map selection (arrows + Enter/Escape), button flight rows, popover focus trapping, skip link, labels/live announcements, and AA contrast tokens. Recorded the no-clustering decision. 479 tests and `npm run a11y:check`, `view:check`, `saved:check`, typecheck, and build pass. M4 is complete. |
 | 2026-11-12 | **M5 implemented:** Adopted Tailwind v3.4 and a semantic light/dark token layer, then restyled the toolbar, panel, rows, boarding-pass detail card, popovers, banners, and empty/error states with Inter/Playfair/JetBrains Mono and stroke-1.5 SVG icons. Added light OSM and locally filtered dark tiles, 32 px zoom-aware two-tone markers with a selected ring, and a plane favicon. Documented `docs/STYLE.md`; `style:check` captures 8 theme/state screenshots and verifies cardinal headings. 479 tests and `a11y:check`, `style:check`, `view:check`, `saved:check`, typecheck, and build pass. |
+| 2026-11-12 | **M5.1 implemented:** Added adsbdb-backed origin flags, city/airport, airline when available, and aircraft type through the local proxy with visible-row lookup, persistent bounded caching, and neutral unknown states. Converted the desktop panel to a floating rounded card with fit/attribution clearance, added “Window Seat” spacing, and fixed live OS theme switching for the map. 507 tests and `enrich:check`, `a11y:check`, `style:check`, `view:check`, `saved:check`, typecheck, and build pass. |

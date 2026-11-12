@@ -1,6 +1,6 @@
-# WindowSeat style guide (M5)
+# Window Seat style guide (M5)
 
-WindowSeat follows the **Retro** reference: white/stone surfaces, hairline
+Window Seat follows the **Retro** reference: white/stone surfaces, hairline
 borders, sky accents, active pills, faint hover motion, and a custom stroke icon
 set. The secondary references contribute the Inter/Playfair pairing and
 understated gradient accents.
@@ -69,9 +69,16 @@ callsigns, 16–18 px section titles, 20 px wordmark. Uppercase labels use
   share the same bordered button shape; mobile collapses labels to icons.
 - **Rows**: full-width buttons with a 2 px transparent left border. Hover uses
   `surface-2`; selection uses a warning left border and a 50%-opacity warning
-  surface. Callsigns and telemetry use monospace/tabular numerals.
+  surface. Callsigns and telemetry use monospace/tabular numerals. A fixed-width
+  origin flag slot precedes the callsign; unknown origins use a neutral globe.
 - **Detail card**: boarding-pass treatment — dashed perforation, mono callsign,
-  2-column telemetry grid, accent FlightRadar24 link.
+  “Likely from” city/airport, aircraft type, and airline when available, then
+  the 2-column telemetry grid and accent FlightRadar24 link. Route metadata is
+  labelled as a scheduled/probable route.
+- **Flight panel**: on desktop it is a rounded, elevated card with 12 px gaps on
+  the top, right, and bottom, floating over the map. Map auto-fit reserves the
+  panel width, and the attribution is offset clear of it. On mobile it remains a
+  bottom sheet.
 - **Popovers**: white/stone panel with a hairline border and large shadow; a
   bottom sheet below 700 px with safe-area padding. Both trap focus and restore
   it on close.
@@ -93,7 +100,10 @@ offline, clock. Icons are `aria-hidden`; buttons keep text or an explicit
     `dark_all` endpoint now renders an “API KEY REQUIRED” watermark without a
     key, so M5 keeps the OSM attribution and filters locally. Marker/overlay
     panes are not filtered.
-  - Attribution uses the same white/stone surface in both themes.
+  - The tile-pane class is toggled on Leaflet's live container, so an OS theme
+    change updates the map without a reload.
+  - Attribution uses the same white/stone surface in both themes and is offset
+    clear of the floating desktop panel.
 - **Marker glyph**: 32 px north-up SVG plane, rotated to the reported track.
   Zoom-aware scale: `0.85` below zoom 8, `1` at 8–9, `1.05` at 10–11, `1.15`
   at 12+; selected markers multiply by `1.3`.

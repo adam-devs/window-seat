@@ -1,4 +1,4 @@
-# WindowSeat ✈️
+# Window Seat ✈️
 
 A lightweight flight tracker using the [OpenSky Network API](https://openskynetwork.github.io/opensky-api/rest.html).
 
@@ -90,6 +90,29 @@ The harness uses Google Chrome via Playwright:
 Keyboard use: focus the map and use the arrow keys to pan; press Enter to place
 a perimeter corner or pin/aim the View at the map centre; press Escape to cancel.
 
+## Flight enrichment check
+
+Flight rows and the detail card show a flag for the **origin airport country**
+plus the likely origin city/airport, airline when available, and aircraft type.
+Metadata comes from the
+keyless [adsbdb](https://www.adsbdb.com/) API through the local `/adsbdb` Vite
+proxy, with visible-row lookups, a bounded persistent cache, and a neutral globe
+when no route is known. The route is callsign-based and scheduled/probable, not
+a confirmed observation.
+
+With the dev server running:
+
+```bash
+npm run enrich:check
+```
+
+The harness mocks OpenSky and adsbdb, then verifies visible-row requests,
+flag/route/type rendering, unknown fallbacks, and cache reuse across refresh and
+reload. It uses Google Chrome via Playwright:
+
+- `ENRICH_BASE_URL` (default `http://localhost:5173/`)
+- `ENRICH_CHANNEL` (default `chrome`)
+
 ## Visual/style check
 
 With the dev server running, regenerate the theme screenshots and verify the
@@ -108,6 +131,12 @@ Google Chrome via Playwright:
 
 The design tokens, typography, component patterns, and map/marker decisions are
 documented in `docs/STYLE.md`.
+
+## Data sources
+
+- **OpenSky Network** — live state vectors through the local `/opensky` proxy.
+- **adsbdb** — keyless aircraft/route metadata through the local `/adsbdb`
+  proxy. No credentials are used.
 
 ## Notes on the OpenSky API
 

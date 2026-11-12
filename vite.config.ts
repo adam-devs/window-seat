@@ -143,6 +143,13 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), openSkyAuthPlugin(auth)],
     server: {
       proxy: {
+        // Keyless aircraft/route metadata enrichment. Kept server-side so the
+        // app has one consistent external-data path and no CORS surprises.
+        '/adsbdb': {
+          target: 'https://api.adsbdb.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/adsbdb/, ''),
+        },
         '/opensky': {
           target: 'https://opensky-network.org',
           changeOrigin: true,

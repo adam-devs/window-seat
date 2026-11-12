@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { FlightPanel } from './FlightPanel';
@@ -104,14 +104,23 @@ function SelectionHarness({
   );
 }
 
-afterEach(cleanup);
+beforeEach(() => {
+  // Enrichment requests are not under test here; keep them pending so the
+  // existing rows/count/detail assertions remain deterministic.
+  vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe('FlightPanel', () => {
-  it('uses the WindowSeat wordmark', () => {
+  it('uses the Window Seat wordmark', () => {
     renderPanel();
 
     expect(
-      screen.getByRole('heading', { name: 'WindowSeat' }),
+      screen.getByRole('heading', { name: 'Window Seat' }),
     ).toBeTruthy();
   });
 
@@ -292,7 +301,7 @@ describe('FlightPanel', () => {
       (screen.getByText('ABC123').closest('.flight-panel-body') as HTMLElement)
         .hidden,
     ).toBe(true);
-    expect(screen.getByRole('heading', { name: 'WindowSeat' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Window Seat' })).toBeTruthy();
     expect(screen.getByText('2 aircraft in area')).toBeTruthy();
 
     fireEvent.click(toggle);

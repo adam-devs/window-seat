@@ -245,6 +245,19 @@ function MapResizer() {
   return null;
 }
 
+// ---- Sub-component: apply the OS theme to Leaflet's live container ----
+function MapThemeSync({ dark }: { dark: boolean }) {
+  const map = useMap();
+
+  useEffect(() => {
+    // MapContainer ignores className changes after mount, so toggling the class
+    // on the live container is what makes the tile filter switch immediately.
+    map.getContainer().classList.toggle('map-dark', dark);
+  }, [map, dark]);
+
+  return null;
+}
+
 // ---- Sub-component: keyboard instructions and map labelling ----
 interface MapAccessibilityProps {
   mode: SelectionMode;
@@ -283,6 +296,7 @@ interface PerimeterFitterProps {
   areaKey: string | null;
   reducedMotion: boolean;
   fitToken: number;
+  rightInsetPx: number;
 }
 
 function PerimeterFitter({
@@ -290,6 +304,7 @@ function PerimeterFitter({
   areaKey,
   reducedMotion,
   fitToken,
+  rightInsetPx,
 }: PerimeterFitterProps) {
   const map = useMap();
 
@@ -302,14 +317,15 @@ function PerimeterFitter({
           [bbox.lamax, bbox.lomax],
         ],
         {
-          padding: [32, 32],
+          paddingTopLeft: [32, 32],
+          paddingBottomRight: [32 + rightInsetPx, 32],
           maxZoom: 12,
           animate: !reducedMotion,
         },
       );
     });
     return () => cancelAnimationFrame(frame);
-  }, [map, areaKey, reducedMotion, fitToken]);
+  }, [map, areaKey, reducedMotion, fitToken, rightInsetPx]);
 
   return null;
 }
@@ -319,12 +335,14 @@ interface DirectionFitterProps {
   direction: DirectionalSelection | null;
   reducedMotion: boolean;
   fitToken: number;
+  rightInsetPx: number;
 }
 
 function DirectionFitter({
   direction,
   reducedMotion,
   fitToken,
+  rightInsetPx,
 }: DirectionFitterProps) {
   const map = useMap();
   const areaKey = direction
@@ -346,14 +364,15 @@ function DirectionFitter({
           [bbox.lamax, bbox.lomax],
         ],
         {
-          padding: [32, 32],
+          paddingTopLeft: [32, 32],
+          paddingBottomRight: [32 + rightInsetPx, 32],
           maxZoom: 12,
           animate: !reducedMotion,
         },
       );
     });
     return () => cancelAnimationFrame(frame);
-  }, [map, areaKey, reducedMotion, fitToken]);
+  }, [map, areaKey, reducedMotion, fitToken, rightInsetPx]);
 
   return null;
 }
@@ -557,6 +576,8 @@ interface FlightMapProps {
   /** Increment to re-fit the map even when the selection is unchanged. */
   fitToken: number;
   units: UnitSystem;
+  /** Desktop right-panel width reserved during auto-fit. */
+  rightInsetPx?: number;
 }
 
 export function FlightMap({
@@ -574,6 +595,7 @@ export function FlightMap({
   refreshIntervalMs,
   fitToken,
   units,
+  rightInsetPx = 0,
 }: FlightMapProps) {
   const reducedMotion = useReducedMotion();
   const prefersDark = useMediaQuery(DARK_MODE_QUERY);
@@ -833,12 +855,12 @@ export function FlightMap({
   return (
     <MapContainer
       ref={mapRef}
-      className={prefersDark ? 'map-dark' : undefined}
       center={[51.5, -0.1]}
       zoom={7}
       style={{ height: '100%', width: '100%' }}
     >
       <MapResizer />
+      <MapThemeSync dark={prefersDark} />
       <MapAccessibility
         mode={mode}
         hasPendingOrigin={pendingDirectionOrigin !== null}
@@ -881,6 +903,7 @@ export function FlightMap({
             areaKey={perimeterKey}
             reducedMotion={reducedMotion}
             fitToken={fitToken}
+            rightInsetPx={rightInsetPx}
           />
           <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
         </>
@@ -890,6 +913,7 @@ export function FlightMap({
             direction={direction}
             reducedMotion={reducedMotion}
             fitToken={fitToken}
+            rightInsetPx={rightInsetPx}
           />
           <DirectionPicker
             direction={direction}
