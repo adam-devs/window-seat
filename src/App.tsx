@@ -80,6 +80,7 @@ export default function App() {
             onPerimeterSelected={setPerimeterBbox}
             selectedFlight={selectedFlight}
             onSelectFlight={setSelectedFlight}
+            refreshIntervalMs={settings.autoRefreshMs}
           />
         </div>
 
