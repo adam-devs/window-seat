@@ -97,7 +97,7 @@ describe('useWorkspace', () => {
     expect(stored().theme).toBe('light');
   });
 
-  it('switches mode when a direction is set or cleared', () => {
+  it('switches to View when a direction is set and keeps the mode when cleared', () => {
     const { result } = renderHook(() => useWorkspace());
     const direction = {
       origin: { latitude: 51, longitude: 0 },
@@ -116,7 +116,7 @@ describe('useWorkspace', () => {
     act(() => {
       result.current.setDirection(null);
     });
-    expect(result.current.workspace.mode).toBe('perimeter');
+    expect(result.current.workspace.mode).toBe('direction');
     expect(result.current.workspace.direction).toBeNull();
   });
 

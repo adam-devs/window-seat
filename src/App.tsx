@@ -7,13 +7,29 @@ import { useFlights } from './hooks/useFlights';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { deriveStatusBanner } from './data/statusBanner';
+import type {
+  DirectionalOrigin,
+  DirectionalSelection,
+} from './data/directionalView';
+import type { SelectionMode } from './types';
 import { DEFAULT_SETTINGS } from './settings';
 import './app.css';
 
 export default function App() {
-  const { workspace, setPerimeter, setAutoRefreshMs, setUnits } =
-    useWorkspace();
+  const {
+    workspace,
+    setPerimeter,
+    setDirection,
+    setMode,
+    setAutoRefreshMs,
+    setUnits,
+  } = useWorkspace();
   const [selectedFlight, setSelectedFlight] = useState<string | null>(null);
+  // The first View click only pins the origin; the direction is created by the
+  // second click. Keeping it here lets Clear and mode changes reset the step and
+  // lets the toolbar explain what to click next.
+  const [pendingDirectionOrigin, setPendingDirectionOrigin] =
+    useState<DirectionalOrigin | null>(null);
 
   // The restored or drawn perimeter is the single source of truth. Persisting
   // it keeps startup and cross-tab state consistent.
@@ -58,9 +74,37 @@ export default function App() {
 
   // ---- Handlers ----
   const handleClear = useCallback(() => {
-    setPerimeter(null);
     setSelectedFlight(null);
-  }, [setPerimeter]);
+    setPendingDirectionOrigin(null);
+    if (workspace.mode === 'direction') {
+      setDirection(null);
+    } else {
+      setPerimeter(null);
+    }
+  }, [workspace.mode, setPerimeter, setDirection]);
+
+  const handleModeChange = useCallback(
+    (mode: SelectionMode) => {
+      setPendingDirectionOrigin(null);
+      setMode(mode);
+    },
+    [setMode],
+  );
+
+  const handleDirectionChange = useCallback(
+    (direction: DirectionalSelection | null) => {
+      if (direction) setPendingDirectionOrigin(null);
+      setDirection(direction);
+    },
+    [setDirection],
+  );
+
+  const handlePendingDirectionOriginChange = useCallback(
+    (origin: DirectionalOrigin | null) => {
+      setPendingDirectionOrigin(origin);
+    },
+    [],
+  );
 
   const resetRefreshInterval = useCallback(() => {
     setAutoRefreshMs(DEFAULT_SETTINGS.autoRefreshMs);
@@ -71,7 +115,11 @@ export default function App() {
       <Toolbar
         onRefresh={refresh}
         onClear={handleClear}
-        perimeterInstructions={activeBbox === null}
+        mode={workspace.mode}
+        onModeChange={handleModeChange}
+        hasPerimeter={workspace.perimeter !== null}
+        hasDirection={workspace.direction !== null}
+        hasPendingOrigin={pendingDirectionOrigin !== null}
         loading={loading}
         autoRefreshMs={workspace.autoRefreshMs}
         units={workspace.units}
@@ -93,6 +141,13 @@ export default function App() {
           <FlightMap
             flights={flights}
             bbox={activeBbox}
+            mode={workspace.mode}
+            direction={workspace.direction}
+            pendingDirectionOrigin={pendingDirectionOrigin}
+            onPendingDirectionOriginChange={
+              handlePendingDirectionOriginChange
+            }
+            onDirectionChange={handleDirectionChange}
             onPerimeterSelected={setPerimeter}
             selectedFlight={selectedFlight}
             onSelectFlight={setSelectedFlight}

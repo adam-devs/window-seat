@@ -138,7 +138,7 @@ describe('parseWorkspace', () => {
     });
   });
 
-  it('falls back to perimeter when direction is invalid', () => {
+  it('clears an invalid direction but keeps View mode', () => {
     for (const direction of [
       null,
       {},
@@ -146,7 +146,7 @@ describe('parseWorkspace', () => {
       { origin: { latitude: 51, longitude: 0 } },
     ]) {
       const parsed = parseWorkspace({ mode: 'direction', direction });
-      expect(parsed.mode).toBe('perimeter');
+      expect(parsed.mode).toBe('direction');
       expect(parsed.direction).toBeNull();
     }
   });

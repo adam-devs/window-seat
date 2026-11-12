@@ -1,11 +1,17 @@
 import type { BoundingBox, SelectionMode } from './types';
 import type { ProviderId } from './data/types';
 import {
+  normalizeDirectionalSelection,
+  type DirectionalSelection,
+} from './data/directionalView';
+import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
   clampRefreshMs,
   parseSettingsJson,
 } from './settings';
+
+export type { DirectionalSelection } from './data/directionalView';
 
 /**
  * Versioned local workspace.
@@ -21,16 +27,6 @@ export const WORKSPACE_VERSION = 1;
 
 export type UnitSystem = 'aviation' | 'metric';
 export type ThemePreference = 'system' | 'light' | 'dark';
-
-export interface DirectionalSelection {
-  origin: { latitude: number; longitude: number };
-  /** Bearing in degrees clockwise from north, normalized to [0, 360). */
-  bearingDeg: number;
-  /** Full cone angle in degrees, 1–180. */
-  angleDeg: number;
-  /** Visibility distance in kilometres, 1–500. */
-  visibilityKm: number;
-}
 
 export interface Workspace {
   perimeter: BoundingBox | null;
@@ -56,32 +52,12 @@ export const DEFAULT_WORKSPACE: Workspace = {
   providerId: null,
 };
 
-const DEFAULT_CONE_ANGLE_DEG = 60;
-const DEFAULT_VISIBILITY_KM = 100;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function clampNumber(
-  value: unknown,
-  minimum: number,
-  maximum: number,
-  fallback: number,
-): number {
-  const parsed = finiteNumber(value);
-  if (parsed === null) return fallback;
-  return Math.min(maximum, Math.max(minimum, parsed));
-}
-
-function normalizeBearing(value: unknown): number | null {
-  const parsed = finiteNumber(value);
-  if (parsed === null) return null;
-  return ((parsed % 360) + 360) % 360;
 }
 
 function parseBoundingBox(value: unknown): BoundingBox | null {
@@ -113,43 +89,6 @@ function parseBoundingBox(value: unknown): BoundingBox | null {
   return { lamin: south, lomin: west, lamax: north, lomax: east };
 }
 
-function parseDirection(value: unknown): DirectionalSelection | null {
-  if (!isRecord(value) || !isRecord(value.origin)) return null;
-
-  const latitude = finiteNumber(value.origin.latitude);
-  const longitude = finiteNumber(value.origin.longitude);
-  if (
-    latitude === null ||
-    longitude === null ||
-    latitude < -90 ||
-    latitude > 90 ||
-    longitude < -180 ||
-    longitude > 180
-  ) {
-    return null;
-  }
-
-  const bearingDeg = normalizeBearing(value.bearingDeg);
-  if (bearingDeg === null) return null;
-
-  return {
-    origin: { latitude, longitude },
-    bearingDeg,
-    angleDeg: clampNumber(
-      value.angleDeg,
-      1,
-      180,
-      DEFAULT_CONE_ANGLE_DEG,
-    ),
-    visibilityKm: clampNumber(
-      value.visibilityKm,
-      1,
-      500,
-      DEFAULT_VISIBILITY_KM,
-    ),
-  };
-}
-
 function parseUnits(value: unknown): UnitSystem {
   return value === 'metric' ? 'metric' : 'aviation';
 }
@@ -166,9 +105,11 @@ function parseProvider(value: unknown): ProviderId | null {
 export function parseWorkspace(value: unknown): Workspace {
   if (!isRecord(value)) return { ...DEFAULT_WORKSPACE };
 
-  const direction = parseDirection(value.direction);
+  const direction = normalizeDirectionalSelection(value.direction);
+  // View mode is valid without a direction: the user may be between the origin
+  // click and the bearing click, or may have just cleared the cone.
   const mode: SelectionMode =
-    value.mode === 'direction' && direction ? 'direction' : 'perimeter';
+    value.mode === 'direction' ? 'direction' : 'perimeter';
 
   return {
     perimeter: parseBoundingBox(value.perimeter),

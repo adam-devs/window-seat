@@ -65,7 +65,9 @@ export function useWorkspace(): UseWorkspaceResult {
       apply({
         ...workspaceRef.current,
         direction,
-        mode: direction ? 'direction' : 'perimeter',
+        // Pinching a view implies View mode, but clearing it keeps the current
+        // mode so the user can immediately pin a new origin.
+        mode: direction ? 'direction' : workspaceRef.current.mode,
       });
     },
     [apply],

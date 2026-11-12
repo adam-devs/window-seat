@@ -1,12 +1,19 @@
 import type { BudgetStatus } from '../data/budget';
 import type { Cadence } from '../data/policy';
+import { SELECTION_MODE_LABELS } from '../data/directionalView';
+import { selectionInstruction } from '../data/selectionInstructions';
+import type { SelectionMode } from '../types';
 import type { UnitSystem } from '../workspace';
 import { SettingsPopover } from './SettingsPopover';
 
 interface ToolbarProps {
   onRefresh: () => void;
   onClear: () => void;
-  perimeterInstructions: boolean;
+  mode: SelectionMode;
+  onModeChange: (mode: SelectionMode) => void;
+  hasPerimeter: boolean;
+  hasDirection: boolean;
+  hasPendingOrigin: boolean;
   loading: boolean;
   autoRefreshMs: number;
   units: UnitSystem;
@@ -17,10 +24,16 @@ interface ToolbarProps {
   onResetSettings: () => void;
 }
 
+const MODES: SelectionMode[] = ['perimeter', 'direction'];
+
 export function Toolbar({
   onRefresh,
   onClear,
-  perimeterInstructions,
+  mode,
+  onModeChange,
+  hasPerimeter,
+  hasDirection,
+  hasPendingOrigin,
   loading,
   autoRefreshMs,
   units,
@@ -30,14 +43,34 @@ export function Toolbar({
   onUnitsChange,
   onResetSettings,
 }: ToolbarProps) {
+  const instruction = selectionInstruction({
+    mode,
+    hasPerimeter,
+    hasDirection,
+    hasPendingOrigin,
+  });
+
   return (
     <div className="toolbar">
-      {/* Perimeter is the only selection mode. */}
+      <div className="mode-switch" role="group" aria-label="Selection mode">
+        {MODES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`mode-btn${mode === option ? ' mode-btn--active' : ''}`}
+            aria-pressed={mode === option}
+            onClick={() => onModeChange(option)}
+          >
+            {SELECTION_MODE_LABELS[option]}
+          </button>
+        ))}
+      </div>
+
       <div className="perimeter-instructions">
-        {perimeterInstructions
-          ? 'Click two corners on the map to draw your search box.'
-          : 'Perimeter set — click two new corners to redraw.'}
-        <button className="clear-btn" onClick={onClear}>Clear</button>
+        <span aria-live="polite">{instruction}</span>
+        <button className="clear-btn" onClick={onClear}>
+          Clear
+        </button>
       </div>
 
       {/* Refresh */}

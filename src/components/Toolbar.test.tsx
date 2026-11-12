@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Toolbar } from './Toolbar';
 import type { BudgetStatus } from '../data/budget';
+import type { SelectionMode } from '../types';
 
 const budget: BudgetStatus = {
   providerId: 'opensky',
@@ -26,22 +27,31 @@ const budget: BudgetStatus = {
 };
 
 interface RenderToolbarOptions {
-  perimeterInstructions?: boolean;
+  mode?: SelectionMode;
+  hasPerimeter?: boolean;
+  hasDirection?: boolean;
+  hasPendingOrigin?: boolean;
   loading?: boolean;
   onRefresh?: () => void;
   onClear?: () => void;
+  onModeChange?: (mode: SelectionMode) => void;
 }
 
 function renderToolbar(options: RenderToolbarOptions = {}) {
   const onRefresh = options.onRefresh ?? vi.fn();
   const onClear = options.onClear ?? vi.fn();
+  const onModeChange = options.onModeChange ?? vi.fn();
   const onUnitsChange = vi.fn();
 
   const view = render(
     <Toolbar
       onRefresh={onRefresh}
       onClear={onClear}
-      perimeterInstructions={options.perimeterInstructions ?? true}
+      mode={options.mode ?? 'perimeter'}
+      onModeChange={onModeChange}
+      hasPerimeter={options.hasPerimeter ?? false}
+      hasDirection={options.hasDirection ?? false}
+      hasPendingOrigin={options.hasPendingOrigin ?? false}
       loading={options.loading ?? false}
       autoRefreshMs={30_000}
       units="aviation"
@@ -53,18 +63,42 @@ function renderToolbar(options: RenderToolbarOptions = {}) {
     />,
   );
 
-  return { ...view, onRefresh, onClear, onUnitsChange };
+  return { ...view, onRefresh, onClear, onModeChange, onUnitsChange };
 }
 
 afterEach(cleanup);
 
 describe('Toolbar', () => {
-  it('shows perimeter-only drawing instructions', () => {
-    const { rerender } = renderToolbar({ perimeterInstructions: true });
+  it('shows perimeter drawing instructions', () => {
+    renderToolbar({ mode: 'perimeter', hasPerimeter: true });
+
+    expect(
+      screen.getByText('Perimeter set — click two new corners to redraw.'),
+    ).toBeTruthy();
+  });
+
+  it('offers Perimeter and View modes and reports mode changes', () => {
+    const { onModeChange } = renderToolbar();
+
+    const perimeter = screen.getByRole('button', { name: 'Perimeter' });
+    const view = screen.getByRole('button', { name: 'View' });
+
+    expect(perimeter.getAttribute('aria-pressed')).toBe('true');
+    expect(view.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(view);
+    expect(onModeChange).toHaveBeenCalledWith('direction');
+
+    fireEvent.click(perimeter);
+    expect(onModeChange).toHaveBeenCalledWith('perimeter');
+  });
+
+  it('shows the View pin and bearing instructions', () => {
+    const { rerender } = renderToolbar({ mode: 'direction' });
 
     expect(
       screen.getByText(
-        'Click two corners on the map to draw your search box.',
+        'Click the map to pin an origin, then click again to aim the view.',
       ),
     ).toBeTruthy();
 
@@ -72,7 +106,11 @@ describe('Toolbar', () => {
       <Toolbar
         onRefresh={vi.fn()}
         onClear={vi.fn()}
-        perimeterInstructions={false}
+        mode="direction"
+        onModeChange={vi.fn()}
+        hasPerimeter={false}
+        hasDirection={false}
+        hasPendingOrigin
         loading={false}
         autoRefreshMs={30_000}
         units="aviation"
@@ -83,11 +121,8 @@ describe('Toolbar', () => {
         onResetSettings={vi.fn()}
       />,
     );
-
     expect(
-      screen.getByText(
-        'Perimeter set — click two new corners to redraw.',
-      ),
+      screen.getByText('Origin pinned — click again to aim the view.'),
     ).toBeTruthy();
   });
 
