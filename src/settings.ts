@@ -19,7 +19,12 @@ export const DEFAULT_SETTINGS: Settings = {
 
 /** Clamp any value to a supported refresh interval. Invalid values fall back. */
 export function clampRefreshMs(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value);
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : Number.NaN;
   if (!Number.isFinite(parsed)) return DEFAULT_SETTINGS.autoRefreshMs;
   return Math.min(MAX_REFRESH_MS, Math.max(MIN_REFRESH_MS, Math.round(parsed)));
 }

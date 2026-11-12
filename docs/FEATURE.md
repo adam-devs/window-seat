@@ -1,13 +1,14 @@
 # Window Seat — Feature Specification
 
-> **Status:** Draft for the restart
+> **Status:** M1 (reliable data foundation) implemented; M2 and later planned
 > **Last updated:** 2026-11-12
-> **Current implementation:** commit `d5f7696` (branded "SkyWatch")
+> **Current implementation:** M1 as of 2026-11-12 (branded "SkyWatch")
 > **Target product name:** Window Seat
 
 This document describes both what the app does today and what it should do next.
-The current-state sections are an accurate inventory of the existing code. The
-target-state sections are requirements for the restart and are not yet built.
+The pre-restart inventory in section 3 is retained as a baseline; section 3.8
+records what M1 changed. The target-state sections are requirements and are not
+all built yet. Planned scope changes from 2026-11-12 are called out explicitly.
 
 ---
 
@@ -18,9 +19,10 @@ target-state sections are requirements for the restart and are not yet built.
 Window Seat is a lightweight web app for seeing aircraft around a chosen
 location — "what is flying near my window right now?"
 
-The app is a real-time viewer, not a flight planner or historical tracker. A user
-picks a place (or their current position), optionally draws a custom area, and
-gets a live map and list of aircraft in that area.
+The app is a real-time viewer, not a flight planner or historical tracker. Today
+a user can pick a place (or their current position) or draw a custom area;
+**M2.0 will remove place/GPS search and make the drawn perimeter the only mode.**
+Either way the result is a live map and list of aircraft in that area.
 
 ### 1.2 Target user
 
@@ -32,17 +34,23 @@ gets a live map and list of aircraft in that area.
 
 ### 1.3 Goals
 
-- **Zero friction:** open the app and see traffic around a remembered location.
+- **Zero friction:** open the app and draw a perimeter, or see traffic around a
+  remembered area.
 - **Smooth:** aircraft move continuously between feed updates instead of jumping.
 - **Legible:** find, filter, and inspect an aircraft quickly.
 - **Resilient:** degrade gracefully around rate limits, stale data, and errors.
-- **Local-first:** no accounts; preferences and home location stay on the device.
+- **Local-first:** no accounts; preferences and the perimeter stay on the device.
 - **Focused:** do one job — nearby aircraft — well.
 
 ### 1.4 Non-goals
 
-- Observer-relative geometry: distance from the user, compass bearing, elevation
-  angle, visibility cone, and overhead-pass prediction are **out of scope**.
+- **Per-aircraft observer-relative readouts:** distance from the user, compass
+  bearing, elevation angle, and overhead-pass prediction are **out of scope** in
+  the core list/detail UI.
+  - **Planned exception (M3.5):** an optional “View” mode pins an origin, takes a
+    second-click bearing, draws a visibility cone, and filters aircraft within a
+    saved distance. The cone is a view/query tool; it does not add distance or
+    bearing rows to the detail card.
 - Flight planning, ticketing, schedules, arrivals/departures, or route lookup.
 - Historical playback, fleet tracking, or a long-term aircraft database.
 - Accounts, cross-device sync, or a server-side user database.
@@ -82,11 +90,16 @@ Priorities use **P0** (must-have for restart), **P1** (should-have), and
 
 ---
 
-## 3. Current implementation (as-built)
+## 3. Pre-restart implementation (baseline, commit `d5f7696`)
 
-The current app is a single-page React 18 + TypeScript + Vite application using
-react-leaflet 4 and Leaflet 1.9. It is approximately 950 lines of source and
-styles, with no tests, linting, or deployment configuration.
+The pre-restart app was a single-page React 18 + TypeScript + Vite application
+using react-leaflet 4 and Leaflet 1.9. It was approximately 950 lines of source
+and styles, with no tests, linting, or deployment configuration.
+
+> **M1 update (2026-11-12):** the data layer, request policy, flight hook, status
+> handling, and settings UI have been rebuilt. The gaps described in 3.2–3.6 are
+> historical; see **3.8** for the current M1 status. The area-selection inventory
+> in 3.1 is still current until M2.0 removes location mode.
 
 ### 3.1 Area selection ✅ / 🟡
 
@@ -213,11 +226,45 @@ styles, with no tests, linting, or deployment configuration.
 | Accessibility | 🟡 partial |
 | Tests / lint / CI | ⛔ |
 
+### 3.8 M1 as-built status (2026-11-12)
+
+M1 rebuilt the data path behind tested modules:
+
+| Area | M1 status |
+| --- | --- |
+| Typed config + settings store | ✅ `src/config.ts`, versioned `localStorage`, clamping/reset |
+| Provider model + OpenSky adapter | ✅ SI `Aircraft`/`Snapshot`, typed errors, defensive parsing |
+| Provider registry | ✅ OpenSky; community adapters deferred |
+| Cadence + credit budget | ✅ 30 s default, 4,000/day, 10% reserve, auto-pause at 90% |
+| Backoff + cancellation | ✅ jittered retries, single-flight, abort on area change |
+| Last-good data | ✅ retained through stale/error/rate-limit states |
+| Flight hook metadata | ✅ data age, retry time, provider, live budget, effective cadence |
+| Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
+| Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
+| Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
+| Tests | ✅ 261 Vitest tests across data, hook, and component layers |
+| Build | ✅ `npm run build` passes |
+| Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
+
+Still current or deferred:
+- Location and perimeter modes both remain until M2.0 removes location search.
+- Smooth animation/trails (M2), workspace persistence (M3), the directional View
+  mode (M3.5), mobile/accessibility (M4), and the visual pass (M5) are not built.
+- Community providers remain deferred.
+- Lint/CI remain unconfigured; tests and the production build are the current
+  local gates.
+
 ---
 
 ## 4. Target features (restart)
 
-### F1 — Location workspace (P0)
+> **Planned scope update (2026-11-12):** M2.0 removes location search, geocoding,
+> GPS, and the radius control; perimeter becomes the only selection mode and the
+> default. Treat F1, F2.1, F2.2, and F2.3 as superseded. M3.5 adds an optional
+> directional “View” mode (pinned origin, second-click bearing, 60° cone,
+> persisted visibility distance); full scope is tracked in the plan roadmap.
+
+### F1 — Location workspace (P0) — ⛔ superseded by M2.0
 
 A remembered working location so the app is useful immediately on return.
 
@@ -234,7 +281,7 @@ A remembered working location so the app is useful immediately on return.
 **Acceptance:** reopening the app restores the previous area and starts fetching
 without user input; clearing shows an explicit empty map state.
 
-### F2 — Area selection (P0)
+### F2 — Area selection (P0) — 🟡 F2.1–F2.3 superseded by M2.0
 
 - **F2.1 Place search**
   - Debounced input with in-flight request cancellation.
@@ -322,7 +369,7 @@ distinct; the UI remains responsive with several hundred aircraft.
 **Acceptance:** the list can be sorted, filtered, and searched without blocking
 the map; selection remains coherent across a refresh.
 
-### F5 — Data layer (P0)
+### F5 — Data layer (P0) — ✅ implemented in M1, except F5.2
 
 - **F5.1 Provider abstraction** — a common interface so sources can be swapped.
 - **F5.2 Multiple adapters** — at minimum OpenSky plus one community ADS-B
@@ -348,7 +395,7 @@ the map; selection remains coherent across a refresh.
 **Acceptance:** a 429 or transient failure leaves the last snapshot visible;
 recovery is automatic; no hard-coded credentials exist in source.
 
-### F6 — Settings and persistence (P1)
+### F6 — Settings and persistence (P1) — 🟡 refresh interval only
 
 - **F6.1 Units** — aviation or metric, default decided during implementation
   (open question).
@@ -364,7 +411,7 @@ recovery is automatic; no hard-coded credentials exist in source.
 **Acceptance:** preferences survive reloads; corrupt storage does not break
 startup.
 
-### F7 — UI states (P1)
+### F7 — UI states (P1) — ✅ implemented in M1
 
 - **F7.1 First load** — skeleton or quiet loading state; no flash of "no data."
 - **F7.2 Background refresh** — subtle updating indicator; never block the map.
@@ -453,6 +500,13 @@ frequently; confirm them during implementation.
 
 ## 6. Data contracts
 
+> **M1 implementation note (2026-11-12):** the shipped contract is in
+> `src/data/types.ts`. It uses snake-case UI-compatible field names
+> (`baro_altitude`, `true_track`, etc.), epoch-millisecond timestamps, and
+> `fetchFlights(bbox, signal): Promise<Snapshot>`; a `Snapshot` wraps the
+> `Aircraft[]` plus provider/time/cost metadata. The sketches below remain as
+> the design intent.
+
 ### 6.1 Internal aircraft model
 
 The internal model should be provider-neutral and use SI units; display
@@ -515,6 +569,10 @@ interface FlightProvider {
 
 ### 6.4 Persistence schema
 
+**Current M1 store:** `window-seat:settings:v1` contains only
+`{ autoRefreshMs }`; budget usage is in `window-seat:budget:v1`. The workspace
+schema below is the M3 target (with location/radius fields superseded by M2.0).
+
 ```ts
 interface StoredSettingsV1 {
   version: 1;
@@ -545,6 +603,10 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 
 ### 7.1 Refresh and rate budget
 
+**Implemented in M1 (2026-11-12):** provider-aware cadence, per-request credit
+cost, 90% auto-pause, manual reserve, 429/5xx backoff, and live cadence
+explanations.
+
 - Choose the default cadence from the provider's limits, not a fixed 15 s.
 - Compute the daily request cost of a cadence before shipping it. For example,
   15 s polling is 5,760 requests/day.
@@ -561,6 +623,8 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 
 ### 7.3 Freshness
 
+**Implemented in M1:** relative data age, stale threshold, and stale banner.
+
 - Define freshness relative to the provider's update resolution.
 - Dim or mark aircraft whose last contact exceeds the stale threshold (for
   example, 60 s).
@@ -569,18 +633,23 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 ### 7.4 Privacy
 
 - Geolocation is requested only on user action; coordinates are stored locally.
+  **M2.0 removes geolocation entirely.**
 - No analytics or tracking scripts by default.
 - Third-party requests are limited to the map tiles, geocoder, and flight
-  provider; document them.
+  provider; document them. **M2.0 removes the geocoder.**
 - A privacy note explains what leaves the device.
 
 ### 7.5 Browser support
 
 - Current evergreen Chrome, Firefox, Safari, and Edge.
 - iOS Safari and Android Chrome for the mobile layout.
-- Graceful behavior when geolocation or storage is unavailable.
+- Graceful behavior when storage is unavailable. Geolocation handling becomes
+  irrelevant after M2.0 removes it.
 
 ### 7.6 Reliability
+
+**Implemented in M1:** last-good retention, automatic retry, and single-flight
+area changes.
 
 - Keep last-good data visible through transient failures.
 - Recover automatically when the provider or network returns.
@@ -588,10 +657,12 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 
 ### 7.7 Maintainability
 
-- TypeScript strict mode.
+- TypeScript strict mode. ✅
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
-- Lint and formatting checks in CI.
-- No committed credentials or placeholder tokens.
+  🟡 parsing, policy/budget, settings, hook, and component tests are in place
+  (261 tests); interpolation tests arrive with M2.
+- Lint and formatting checks in CI. ⛔ (local test + build gates only)
+- No committed credentials or placeholder tokens. ✅
 
 ---
 
@@ -615,18 +686,18 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 | Sticky detail card | 🟡 | F4.4 | P1 |
 | Rich detail fields | 🟡 | F4.5 | P2 |
 | Units toggle | ⛔ | F6.1 / F4.7 | P1 |
-| Provider abstraction | ⛔ | F5.1–F5.2 | P0 |
-| Request budget / backoff | ⛔ | F5.3–F5.4 | P0 |
-| Last-good data | ⛔ | F5.5 | P0 |
-| Request cancellation | ⛔ | F5.6 | P1 |
-| Credentials via config | ⛔ | F5.7 | P0 |
-| Production proxy path | ⛔ | F5.8 | P0 |
-| Settings persistence | ⛔ | F6 | P1 |
-| Distinct UI states | 🟡 | F7 | P1 |
+| Provider abstraction | ✅ | F5.1–F5.2 | P0 |
+| Request budget / backoff | ✅ | F5.3–F5.4 | P0 |
+| Last-good data | ✅ | F5.5 | P0 |
+| Request cancellation | ✅ | F5.6 | P1 |
+| Credentials via config | ✅ | F5.7 | P0 |
+| Production proxy path | ⛔ (local-only scope) | F5.8 | P0 |
+| Settings persistence | 🟡 refresh interval ✅; workspace ⛔ | F6 | P1 |
+| Distinct UI states | ✅ | F7 | P1 |
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
-| Accessibility pass | 🟡 | F9 | P2 |
-| Tests / lint / CI | ⛔ | 7.7 | P2 |
+| Accessibility pass | 🟡 labels/focus started | F9 | P2 |
+| Tests / lint / CI | 🟡 261 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -635,23 +706,23 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 | ID | Severity | Area | Finding | Resolution |
 | --- | --- | --- | --- | --- |
 | A1 | Critical | Data | `Authorization: 'Basic ' + btoa('$TOKEN')` sent a literal placeholder credential. | **Resolved 2026-11-12:** fake header removed; the Vite dev proxy injects an OAuth2 bearer token from `.env.local`, with anonymous fallback. |
-| A2 | Critical | Data | 15 s polling ≈ 5,760 requests/day against a daily-credit API; no budget, backoff, or 429 handling. | Provider-aware cadence and budgeting (F5.3–F5.4). |
-| A3 | High | Data | A failed poll replaces data with an error; no last-good snapshot. | Retain last success and show a stale banner (F5.5, F7.5). |
-| A4 | High | Data | In-flight requests are not cancelled when the area changes; overlapping timers are possible. | AbortController and a single polling lifecycle (F5.6). |
+| A2 | Critical | Data | 15 s polling ≈ 5,760 requests/day against a daily-credit API; no budget, backoff, or 429 handling. | **Resolved 2026-11-12 (M1.3):** provider-aware cadence, area cost, 4,000/day budget with 10% reserve, 90% auto-pause, backoff, and 429 handling. |
+| A3 | High | Data | A failed poll replaces data with an error; no last-good snapshot. | **Resolved 2026-11-12 (M1.4):** last-good snapshot retained; non-destructive stale/error banner (F5.5, F7.5). |
+| A4 | High | Data | In-flight requests are not cancelled when the area changes; overlapping timers are possible. | **Resolved 2026-11-12 (M1.3–M1.4):** latest-wins coordinator aborts stale requests; single pending poll; visibility pause. |
 | A5 | High | Map | Positions jump on every refresh; no interpolation or trails. | Smoothing layer (F3.3–F3.4). |
 | A6 | High | Map | Marker icons are recreated on every render. | Stable icon instances and memoization (F8.1). |
 | A7 | Medium | Map | Map never fits to the selected area; starts at London regardless of search. | Auto-fit (F2.5). |
 | A8 | Medium | Map/list | Map shows on-ground aircraft; the list filters them out. | Unify behavior or add an explicit filter (F3.7). |
 | A9 | Medium | Detail | Selected aircraft vanishes when it leaves the feed. | Sticky last-known detail with stale state (F4.4). |
-| A10 | Medium | UI | Empty state says "Set a search area" even when an area is set with no aircraft. | Distinguish empty causes (F7.3). |
-| A11 | Medium | Geocoding | No debounce, cancellation, or provider-policy headers. | Harden search flow (F2.1). |
-| A12 | Medium | Config | No environment/config mechanism; dev-only proxy; no production strategy. | **Partially resolved 2026-11-12:** `.env.local` + `.env.example` and a Vite OAuth2 proxy. Typed app config still pending; production is out of scope. |
+| A10 | Medium | UI | Empty state says "Set a search area" even when an area is set with no aircraft. | **Resolved 2026-11-12 (M1.5):** `flightListState` distinguishes no-area, loading, unavailable, and genuinely empty states. |
+| A11 | Medium | Geocoding | No debounce, cancellation, or provider-policy headers. | **Moot planned (M2.0):** location search/geocoding is being removed in favour of perimeter-only selection. |
+| A12 | Medium | Config | No environment/config mechanism; dev-only proxy; no production strategy. | **Resolved 2026-11-12 (M1.1):** typed `config.ts`, `.env.local` + `.env.example`, Vite OAuth2 proxy; production remains out of scope. |
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
-| A15 | Low | Types | Position source is a raw number; response tuples are not validated. | Typed enum and defensive parsing (F5.9). |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | Brace directory removed 2026-11-12; favicon and tooling remain. |
+| A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 261 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
-| A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | Accessibility pass (F9). |
+| A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
 
 ---
 
@@ -664,14 +735,20 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
   OpenSky-only.
 - Whether to request OpenSky `extended=1` for aircraft category data.
 - Whether to keep the FlightRadar24 link as the only external lookup.
-- Default radius (suggested 150 km) and whether to allow below 25 km.
+- ~~Default radius~~ **Moot planned (M2.0):** the radius control is removed with
+  location mode.
 - Maximum aircraft count to render before clustering or capping.
 - Whether a light theme is in scope for the restart or later.
+- Directional View mode: keep the 60° cone fixed or make the angle configurable?
 - Localization and time-zone display.
 
 ### Explicitly out of scope
 
-- Distance, bearing, elevation, visibility cone, and overhead-pass prediction.
+- Per-aircraft distance, bearing, elevation angle, and overhead-pass prediction
+  in the core list/detail UI. **Planned exception (M3.5):** the directional View
+  cone described in section 1.4.
+- Location search, geocoding, GPS, and radius controls **after M2.0** (removed;
+  perimeter-only).
 - Accounts, sync, and server-side storage.
 - Production hosting, deployment, or a hosted proxy.
 - Route, airline, schedule, arrival, and departure enrichment.
@@ -687,3 +764,5 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 | --- | --- |
 | 2026-11-12 | Initial specification: current-state inventory, target features F1–F9, provider evaluation, contracts, audit. |
 | 2026-11-12 | Local-only scope confirmed; local OAuth2 proxy implemented; fake credential removed; A1 resolved, A12 partially resolved. |
+| 2026-11-12 | **M1 implemented:** typed config/settings, provider model + OpenSky adapter/registry, cadence/credit budget, backoff, single-flight cancellation, last-good data, status banner, panel retention, data age/provider header, refresh-settings popover. A2–A4, A10, A12, A15 resolved; A16/A18 partially resolved. 261 tests, production build, and manual matrix pass. |
+| 2026-11-12 | **Planned scope:** M2.0 removes location/geocoding/GPS/radius (perimeter-only default); M3.5 adds an optional directional View mode with pinned origin, bearing cone, and persisted visibility distance. Non-goals updated to scope the cone exception. |
