@@ -533,6 +533,14 @@ body {
 
 /* ---- Responsive: stack on mobile ---- */
 @media (max-width: 700px) {
+  .settings-wrap { margin-left: auto; }
+  .settings-popover {
+    left: auto;
+    right: 0;
+    width: min(292px, calc(100vw - 32px));
+    max-width: none;
+  }
+
   .main { flex-direction: column; }
   .flight-panel {
     width: 100%;

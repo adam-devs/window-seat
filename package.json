@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "perf:check": "node scripts/perf-check.mjs"
+    "perf:check": "node scripts/perf-check.mjs",
+    "view:check": "node scripts/view-check.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.8",

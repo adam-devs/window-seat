@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 427 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 428 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -257,7 +257,7 @@ Subsequent status:
   units are implemented.
 - The M3.5 View interaction (pin, bearing, cone), cone query/filter,
   visibility-distance/cost controls, persistence, and empty states are
-  implemented; final View verification remains.
+  implemented and verified by `npm run view:check`.
 - Mobile/accessibility (M4) and the visual pass (M5) remain deferred.
 - Community providers remain deferred.
 - Lint/CI remain unconfigured; tests and the production build are the current
@@ -274,7 +274,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 427 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 428 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -692,7 +692,7 @@ area changes.
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
   🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
   trail, visual-state, list controls, and performance-harness coverage are in
-  place (427
+  place (428
   tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
@@ -710,7 +710,7 @@ area changes.
 | Radius control | Removed (M2.0) | — | — |
 | Perimeter drawing | ✅ two-click; drag/preview pending | F2.4 | P1 |
 | Auto-fit map | ⛔ | F2.5 | P1 |
-| Directional View mode | 🟡 implemented; final M3.5 verification pending | M3.5 | P2 |
+| Directional View mode | ✅ pin/bearing/cone, query/filter, distance/cost, persistence, and verification | M3.5 | P2 |
 | Smooth marker motion | ⛔ | F3.3 | P0 |
 | Aircraft trails | ✅ observed 120 s + projected segment | F3.4 | P1 |
 | Altitude styling / marker legibility | ✅ 28 px north-up SVG + halo | F3.2 | P1 |
@@ -732,7 +732,7 @@ area changes.
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | 🟡 labels/focus started | F9 | P2 |
-| Tests / lint / CI | 🟡 427 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 428 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -755,7 +755,7 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 427 tests and production build added; favicon and lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 428 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
 
@@ -804,3 +804,4 @@ area changes.
 | 2026-11-12 | **M3.5.4 implemented:** View mode derives the cone's enclosing bbox, fetches it through the existing cadence/budget/backoff path, and filters map markers and list rows client-side by range and angular difference. Bbox memoization is geometry-keyed; the perimeter is drawn/fitted only in Perimeter mode. 409 tests, typecheck, and build pass; a synthetic-aircraft Chrome check confirmed exact filtering, marker/list parity, and one request per completed view. Visibility-distance controls remain pending. |
 | 2026-11-12 | **M3.5.5 implemented:** Settings gained 25/50/100/200 km View distances, a disabled-until-pinned state, over-limit disabling with a “Too large” note, and an effective area/credit-cost summary with warnings. Distance changes update the persisted view, refetch the cone bbox, and refilter. 421 tests, typecheck, and build pass; Chrome verified 100→50 km changes the request, list/marker set, stored distance, and survives reload. Remaining View state polish is tracked in M3.5.6. |
 | 2026-11-12 | **M3.5.6 implemented:** `useFlights` selection keys rekey last-good data on every mode/perimeter/direction change, including bearing changes that leave the bbox unchanged. Failures within the same selection retain filtered rows. The panel now uses direction-aware no-area, empty, and failure copy plus “N aircraft in view” counts. 427 tests, typecheck, and build pass; Chrome verified 503 retention, View-mode reload restore, and empty-direction copy. |
+| 2026-11-12 | **M3.5.7 implemented:** Added the repeatable `npm run view:check` desktop/mobile Chrome harness for synthetic-aircraft filtering/parity, request and abort tracking, keyboard View/distance/Escape behavior, persisted reload, rapid changes, popover fit, and empty-direction copy. Added an abort/rekey hook test and fixed a mobile Settings-popover overflow. 428 tests, harness, typecheck, and build pass. M3.5 is complete. |

@@ -233,6 +233,36 @@ describe('useFlights', () => {
     expect(result.current.flights.map((f) => f.icao24)).toEqual(['new-area']);
   });
 
+  it('aborts an in-flight request when the selection key changes', async () => {
+    const requests = trackRequests();
+
+    const { result, rerender } = renderHook(
+      ({ selectionKey }: { selectionKey: string }) =>
+        useFlights(BBOX_A, { selectionKey }),
+      { initialProps: { selectionKey: 'direction:one' } },
+    );
+    await flush();
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].signal.aborted).toBe(false);
+
+    rerender({ selectionKey: 'direction:two' });
+    await flush();
+
+    expect(requests[0].signal.aborted).toBe(true);
+    expect(requests).toHaveLength(2);
+    expect(requests[1].signal.aborted).toBe(false);
+
+    await act(async () => {
+      requests[1].resolve(snapshot('new-view', Date.now()));
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(result.current.status).toBe('ready');
+    expect(result.current.flights.map((f) => f.icao24)).toEqual(['new-view']);
+  });
+
   it('keeps last-good data through a failed refresh and recovers', async () => {
     provider.fetchFlights.mockResolvedValueOnce(
       snapshot('abc123', Date.now()),
