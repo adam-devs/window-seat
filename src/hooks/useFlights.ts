@@ -59,6 +59,15 @@ export type RefreshOutcome =
 export interface UseFlightsOptions {
   /** User's preferred auto-refresh interval; clamped to the supported range. */
   autoRefreshMs?: number;
+  /**
+   * Optional key for last-good data and request identity.
+   *
+   * Use this when the selection can change without changing the provider bbox
+   * (for example, a View bearing change that keeps the same enclosing box). A
+   * new key clears the previous snapshot and starts a new request, while
+   * failures for the same key keep the last-good filtered data.
+   */
+  selectionKey?: string | null;
 }
 
 export interface UseFlightsResult {
@@ -99,7 +108,12 @@ export function useFlights(
   bbox: BoundingBox | null,
   options: UseFlightsOptions = {},
 ): UseFlightsResult {
-  const activeKey = bbox ? bboxKey(bbox) : null;
+  const bboxAreaKey = bbox ? bboxKey(bbox) : null;
+  const suppliedKey = options.selectionKey?.trim()
+    ? options.selectionKey
+    : null;
+  const dataKey = bbox ? (suppliedKey ?? bboxAreaKey) : null;
+  const activeKey = dataKey;
   const userIntervalMs = clampRefreshMs(
     options.autoRefreshMs ?? config.defaultRefreshMs,
   );
@@ -116,8 +130,10 @@ export function useFlights(
 
   const bboxRef = useRef<BoundingBox | null>(bbox);
   bboxRef.current = bbox;
+  const dataKeyRef = useRef<string | null>(activeKey);
+  dataKeyRef.current = activeKey;
 
-  /** Area the current backoff sequence belongs to. */
+  /** Selection the current backoff sequence belongs to. */
   const areaKeyRef = useRef<string | null>(activeKey);
 
   /** Starts an immediate polling cycle from the active effect. */
@@ -183,17 +199,19 @@ export function useFlights(
   const currentNextRetryAt = dataState.key === activeKey ? nextRetryAt : null;
 
   const load = useCallback(
-    async (box: BoundingBox): Promise<BackoffDecision | null> => {
+    async (
+      box: BoundingBox,
+      key: string,
+    ): Promise<BackoffDecision | null> => {
       const coordinator = coordinatorRef.current!;
       const provider = providerRef.current!;
       const backoff = backoffRef.current!;
       const budget = budgetRef.current!;
-      const key = bboxKey(box);
 
-      // A trigger that fired just before an area change/unmount must not spend
-      // a request on the old area.
+      // A trigger that fired just before a selection change/unmount must not
+      // spend a request on the old selection.
       if (!mountedRef.current || !bboxRef.current) return null;
-      if (bboxKey(bboxRef.current) !== key) return null;
+      if (dataKeyRef.current !== key) return null;
 
       setLoading(true);
       // Keep the previous snapshot; only clear the failure that prompted this try.
@@ -216,9 +234,10 @@ export function useFlights(
           },
         });
 
-        // Ignore a response that belonged to a previous area or an unmounted hook.
+        // Ignore a response that belonged to a previous selection or an
+        // unmounted hook.
         if (!mountedRef.current || !bboxRef.current) return null;
-        if (bboxKey(bboxRef.current) !== key) return null;
+        if (dataKeyRef.current !== key) return null;
 
         backoff.recordSuccess();
         dispatch({ type: 'request-success', key, data: snapshot });
@@ -229,7 +248,7 @@ export function useFlights(
         // Area changes and unmounts abort the request; do not surface those.
         if (isAbortError(e)) return null;
         if (!mountedRef.current || !bboxRef.current) return null;
-        if (bboxKey(bboxRef.current) !== key) return null;
+        if (dataKeyRef.current !== key) return null;
 
         // A retryable failure schedules the next attempt with exponential
         // backoff; non-retryable failures fall back to the normal cadence.
@@ -255,7 +274,7 @@ export function useFlights(
     const coordinator = coordinatorRef.current!;
     const doc = typeof document === 'undefined' ? null : document;
 
-    if (!bbox) {
+    if (!bbox || !dataKey) {
       coordinator.cancel();
       triggerRef.current = null;
       rescheduleRef.current = null;
@@ -269,7 +288,7 @@ export function useFlights(
     }
 
     const box = bbox;
-    const key = bboxKey(box);
+    const key = dataKey;
 
     // A new area starts with a fresh retry sequence. Re-renders and manual
     // refreshes for the same area keep the existing attempt count.
@@ -313,7 +332,7 @@ export function useFlights(
         return;
       }
 
-      const decision = await load(box);
+      const decision = await load(box, key);
       if (cancelled) return;
 
       const cadence = getCadence(box);
@@ -384,7 +403,7 @@ export function useFlights(
       doc?.removeEventListener('visibilitychange', handleVisibilityChange);
       coordinator.cancel();
     };
-  }, [bbox, load, getCadence]);
+  }, [bbox, dataKey, load, getCadence]);
 
   // Apply interval changes to the pending poll; the active request is left
   // alone and will schedule using the new cadence when it settles.
@@ -442,10 +461,10 @@ export function useFlights(
 
   const refresh = useCallback((): RefreshOutcome => {
     if (!mountedRef.current) return 'unavailable';
-    if (!bbox) return 'no-area';
+    if (!bbox || !activeKey) return 'no-area';
 
     const coordinator = coordinatorRef.current!;
-    const key = bboxKey(bbox);
+    const key = activeKey;
 
     // Single-flight: a second click joins the request already in progress.
     if (coordinator.isRunning && coordinator.activeKey === key) {
@@ -473,7 +492,7 @@ export function useFlights(
     lastManualRefreshAtRef.current = nowMs;
     trigger();
     return 'started';
-  }, [bbox]);
+  }, [bbox, activeKey]);
 
   return {
     status,

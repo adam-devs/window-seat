@@ -128,13 +128,40 @@ body {
 }
 .settings-option:hover { background: var(--surface-2); }
 .settings-option input { accent-color: var(--accent); }
-.settings-default {
+.settings-option--disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.settings-option--disabled:hover { background: transparent; }
+
+.settings-note {
+  margin: 2px 0 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.settings-default,
+.settings-option-note {
   margin-left: auto;
   font-size: 10px;
-  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.settings-default { color: var(--text-muted); }
+.settings-option-note { color: var(--warn); }
+
+.settings-view-area {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.settings-view-area--warn { color: #fcd34d; }
+.settings-view-area--over-limit { color: #fca5a5; }
+.settings-view-warning { font-weight: 600; }
 
 .settings-status {
   margin-top: 12px;

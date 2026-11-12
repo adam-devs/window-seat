@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { FlightPanel } from './FlightPanel';
 import type { Aircraft } from '../data/types';
 import type { FlightStatus } from '../data/flightStatus';
+import type { SelectionMode } from '../types';
 
 function aircraft(icao24: string, callsign: string): Aircraft {
   return {
@@ -45,6 +46,7 @@ interface RenderPanelOptions {
   providerName?: string;
   hasArea?: boolean;
   status?: FlightStatus;
+  mode?: SelectionMode;
   units?: 'aviation' | 'metric';
 }
 
@@ -65,6 +67,7 @@ function panelElement(options: RenderPanelOptions = {}) {
       providerName={options.providerName ?? 'OpenSky Network'}
       hasArea={options.hasArea ?? true}
       status={options.status ?? 'ready'}
+      mode={options.mode ?? 'perimeter'}
       units={options.units ?? 'aviation'}
     />
   );
@@ -89,6 +92,7 @@ function SelectionHarness({
       providerName="OpenSky Network"
       hasArea
       status="ready"
+      mode="perimeter"
       units="aviation"
     />
   );
@@ -185,6 +189,48 @@ describe('FlightPanel', () => {
       screen.getByText('Draw a perimeter on the map to begin tracking.'),
     ).toBeTruthy();
     expect(screen.getByText('No area selected')).toBeTruthy();
+  });
+
+  it('prompts to pin a view when View mode has no bearing', () => {
+    renderPanel({
+      flights: [],
+      hasArea: false,
+      status: 'idle',
+      mode: 'direction',
+    });
+
+    expect(
+      screen.getByText('Pin a view on the map to begin tracking.'),
+    ).toBeTruthy();
+  });
+
+  it('uses View wording when there is nothing in the direction', () => {
+    renderPanel({
+      flights: [],
+      status: 'ready',
+      lastUpdated: updated,
+      mode: 'direction',
+    });
+
+    expect(
+      screen.getByText('No aircraft in this direction right now.'),
+    ).toBeTruthy();
+    expect(screen.getByText('0 aircraft in view')).toBeTruthy();
+  });
+
+  it('uses View wording when a selected view cannot be loaded', () => {
+    renderPanel({
+      flights: [],
+      error: 'Network request failed',
+      status: 'error',
+      mode: 'direction',
+    });
+
+    expect(
+      screen.getByText(
+        'Couldn’t load aircraft for this view. Retrying automatically.',
+      ),
+    ).toBeTruthy();
   });
 
   it('selects a row, highlights it, and opens the detail card', () => {

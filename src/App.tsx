@@ -1,4 +1,10 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { FlightMap } from './components/FlightMap';
 import { FlightPanel } from './components/FlightPanel';
 import { Toolbar } from './components/Toolbar';
@@ -7,11 +13,17 @@ import { useFlights } from './hooks/useFlights';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { deriveStatusBanner } from './data/statusBanner';
-import type {
-  DirectionalOrigin,
-  DirectionalSelection,
+import {
+  updateDirectionalSelection,
+  type DirectionalOrigin,
+  type DirectionalSelection,
 } from './data/directionalView';
 import type { SelectionMode } from './types';
+import {
+  bboxKey,
+  filterFlightsForSelection,
+  selectionBbox,
+} from './data/selectionArea';
 import { DEFAULT_SETTINGS } from './settings';
 import './app.css';
 
@@ -31,12 +43,33 @@ export default function App() {
   const [pendingDirectionOrigin, setPendingDirectionOrigin] =
     useState<DirectionalOrigin | null>(null);
 
-  // The restored or drawn perimeter is the single source of truth. Persisting
-  // it keeps startup and cross-tab state consistent.
-  const activeBbox = workspace.perimeter;
-  const areaKey = activeBbox
-    ? `${activeBbox.lamin}:${activeBbox.lomin}:${activeBbox.lamax}:${activeBbox.lomax}`
+  // Perimeter mode queries the drawn rectangle; View mode queries the cone's
+  // enclosing bbox and filters the snapshot client-side. The memo is keyed by
+  // the bbox geometry, not object identity, so unrelated workspace writes
+  // (units, theme, refresh) do not look like area changes to the flight hook.
+  const candidateBbox = selectionBbox({
+    mode: workspace.mode,
+    perimeter: workspace.perimeter,
+    direction: workspace.direction,
+  });
+  const candidateBboxKey = bboxKey(candidateBbox);
+  const activeBbox = useMemo(
+    () => candidateBbox,
+    [candidateBboxKey],
+  );
+
+  const directionKey = workspace.direction
+    ? `${workspace.direction.origin.latitude}:${workspace.direction.origin.longitude}:${workspace.direction.bearingDeg}:${workspace.direction.angleDeg}:${workspace.direction.visibilityKm}`
     : null;
+  // Rekey data for every selection change, including a bearing/angle change
+  // that happens to leave the provider bbox unchanged.
+  const selectionKey =
+    candidateBboxKey === null
+      ? null
+      : workspace.mode === 'direction'
+        ? `direction:${directionKey ?? candidateBboxKey}`
+        : `perimeter:${candidateBboxKey}`;
+  const areaKey = selectionKey;
   const previousAreaKey = useRef(areaKey);
 
   useEffect(() => {
@@ -59,7 +92,22 @@ export default function App() {
     budget,
     providerName,
     refresh,
-  } = useFlights(activeBbox, { autoRefreshMs: workspace.autoRefreshMs });
+  } = useFlights(activeBbox, {
+    autoRefreshMs: workspace.autoRefreshMs,
+    selectionKey,
+  });
+
+  const visibleFlights = useMemo(
+    () =>
+      filterFlightsForSelection(
+        flights,
+        workspace.mode,
+        workspace.direction,
+      ),
+    // The direction key captures the geometry without depending on the
+    // re-parsed workspace object identity.
+    [flights, workspace.mode, directionKey],
+  );
 
   // The banner only explains recoverable states; it never replaces the list.
   const banner = deriveStatusBanner({
@@ -106,6 +154,17 @@ export default function App() {
     [],
   );
 
+  const handleVisibilityChange = useCallback(
+    (visibilityKm: number) => {
+      const current = workspace.direction;
+      if (!current) return;
+      setDirection(
+        updateDirectionalSelection(current, { visibilityKm }),
+      );
+    },
+    [workspace.direction, setDirection],
+  );
+
   const resetRefreshInterval = useCallback(() => {
     setAutoRefreshMs(DEFAULT_SETTINGS.autoRefreshMs);
   }, [setAutoRefreshMs]);
@@ -120,6 +179,7 @@ export default function App() {
         hasPerimeter={workspace.perimeter !== null}
         hasDirection={workspace.direction !== null}
         hasPendingOrigin={pendingDirectionOrigin !== null}
+        direction={workspace.direction}
         loading={loading}
         autoRefreshMs={workspace.autoRefreshMs}
         units={workspace.units}
@@ -127,6 +187,7 @@ export default function App() {
         budget={budget}
         onAutoRefreshChange={setAutoRefreshMs}
         onUnitsChange={setUnits}
+        onVisibilityChange={handleVisibilityChange}
         onResetSettings={resetRefreshInterval}
       />
 
@@ -139,8 +200,9 @@ export default function App() {
       <div className="main">
         <div className="map-container">
           <FlightMap
-            flights={flights}
+            flights={visibleFlights}
             bbox={activeBbox}
+            perimeter={workspace.perimeter}
             mode={workspace.mode}
             direction={workspace.direction}
             pendingDirectionOrigin={pendingDirectionOrigin}
@@ -157,7 +219,7 @@ export default function App() {
         </div>
 
         <FlightPanel
-          flights={flights}
+          flights={visibleFlights}
           selectedFlight={selectedFlight}
           onSelectFlight={setSelectedFlight}
           loading={loading}
@@ -167,6 +229,7 @@ export default function App() {
           providerName={providerName}
           hasArea={activeBbox !== null}
           status={status}
+          mode={workspace.mode}
           units={workspace.units}
         />
       </div>

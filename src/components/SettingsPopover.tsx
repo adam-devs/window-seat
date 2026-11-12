@@ -11,6 +11,14 @@ import {
   autoPauseThreshold,
   describeEffectiveCadence,
 } from '../data/settingsView';
+import { DEFAULT_VISIBILITY_KM } from '../data/directionalView';
+import {
+  VIEW_DISTANCE_OPTIONS_KM,
+  describeViewArea,
+  viewDistanceOptions,
+} from '../data/viewDistance';
+import type { DirectionalSelection } from '../data/directionalView';
+import type { SelectionMode } from '../types';
 import {
   DEFAULT_SETTINGS,
   REFRESH_OPTIONS_MS,
@@ -22,10 +30,13 @@ import type { UnitSystem } from '../workspace';
 interface SettingsPopoverProps {
   autoRefreshMs: number;
   units: UnitSystem;
+  mode: SelectionMode;
+  direction: DirectionalSelection | null;
   cadence: Cadence | null;
   budget: BudgetStatus;
   onChange: (ms: number) => void;
   onUnitsChange: (units: UnitSystem) => void;
+  onVisibilityChange: (km: number) => void;
   onReset: () => void;
 }
 
@@ -34,19 +45,22 @@ function credits(value: number): string {
 }
 
 /**
- * Toolbar popover for the automatic refresh interval.
+ * Toolbar popover for display and refresh settings.
  *
- * Changes apply and persist immediately (the hook reschedules the pending poll
- * without reloading). The popover also explains the effective interval when
- * the provider floor or budget lengthens it, and shows today's credit usage.
+ * Changes apply and persist immediately. In View mode it also exposes the
+ * visibility distance and the effective provider cost for the cone's bounding
+ * box; distances outside the normal credit range are disabled before choosing.
  */
 export function SettingsPopover({
   autoRefreshMs,
   units,
+  mode,
+  direction,
   cadence,
   budget,
   onChange,
   onUnitsChange,
+  onVisibilityChange,
   onReset,
 }: SettingsPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -88,6 +102,9 @@ export function SettingsPopover({
   }, [open]);
 
   const paused = cadence?.paused ?? false;
+  const visibilityKm = direction?.visibilityKm ?? DEFAULT_VISIBILITY_KM;
+  const distanceOptions = direction ? viewDistanceOptions(direction) : null;
+  const viewArea = direction ? describeViewArea(direction) : null;
 
   return (
     <div className="settings-wrap" ref={wrapRef}>
@@ -98,8 +115,8 @@ export function SettingsPopover({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        aria-label="Refresh settings"
-        title="Refresh settings"
+        aria-label="Settings"
+        title="Settings"
         onClick={() => setOpen((value) => !value)}
       >
         <span aria-hidden="true">⚙</span> Settings
@@ -115,7 +132,7 @@ export function SettingsPopover({
           tabIndex={-1}
         >
           <div className="settings-heading">
-            <h3 id={headingId}>Refresh settings</h3>
+            <h3 id={headingId}>Display settings</h3>
             <p>Changes apply immediately and are remembered in this browser.</p>
           </div>
 
@@ -153,6 +170,58 @@ export function SettingsPopover({
               </label>
             ))}
           </fieldset>
+
+          {mode === 'direction' && (
+            <fieldset className="settings-group">
+              <legend>View distance</legend>
+              {!direction && (
+                <p className="settings-note">
+                  Pin a view on the map to set its distance.
+                </p>
+              )}
+              {VIEW_DISTANCE_OPTIONS_KM.map((km) => {
+                const option = distanceOptions?.find(
+                  (candidate) => candidate.km === km,
+                );
+                const disabled =
+                  !direction || (option?.exceedsLimit ?? false);
+                return (
+                  <label
+                    className={`settings-option${
+                      disabled ? ' settings-option--disabled' : ''
+                    }`}
+                    key={km}
+                  >
+                    <input
+                      type="radio"
+                      name="view-distance"
+                      value={km}
+                      checked={visibilityKm === km}
+                      disabled={disabled}
+                      onChange={() => onVisibilityChange(km)}
+                    />
+                    <span>{km} km</span>
+                    {option?.exceedsLimit && (
+                      <span className="settings-option-note">Too large</span>
+                    )}
+                  </label>
+                );
+              })}
+              {viewArea && (
+                <p
+                  className={`settings-view-area settings-view-area--${viewArea.level}`}
+                  aria-live="polite"
+                >
+                  <span>{viewArea.text}</span>
+                  {viewArea.warning && (
+                    <span className="settings-view-warning">
+                      {viewArea.warning}
+                    </span>
+                  )}
+                </p>
+              )}
+            </fieldset>
+          )}
 
           <div
             className={`settings-status ${paused ? 'settings-status--paused' : ''}`}

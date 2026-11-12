@@ -394,4 +394,28 @@ describe('useFlights', () => {
     // Auto remains paused after the extra spend.
     expect(result.current.cadence?.paused).toBe(true);
   });
+
+  it('rekeys data and fetches when the selection key changes for the same bbox', async () => {
+    provider.fetchFlights.mockImplementation(async () =>
+      snapshot('first', Date.now()),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ selectionKey }: { selectionKey: string }) =>
+        useFlights(BBOX_A, { selectionKey }),
+      { initialProps: { selectionKey: 'view:one' } },
+    );
+    await flush();
+
+    expect(result.current.flights.map((f) => f.icao24)).toEqual(['first']);
+
+    provider.fetchFlights.mockImplementation(async () =>
+      snapshot('second', Date.now()),
+    );
+    rerender({ selectionKey: 'view:two' });
+    await flush();
+
+    expect(provider.fetchFlights).toHaveBeenCalledTimes(2);
+    expect(result.current.flights.map((f) => f.icao24)).toEqual(['second']);
+  });
 });

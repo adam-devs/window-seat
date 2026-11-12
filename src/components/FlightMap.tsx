@@ -28,6 +28,7 @@ import {
   type DirectionalOrigin,
   type DirectionalSelection,
 } from '../data/directionalView';
+import { bboxKey } from '../data/selectionArea';
 import { config } from '../config';
 import {
   applyMarkerVisual,
@@ -388,7 +389,10 @@ function DirectionPicker({
 // ---- Main FlightMap ----
 interface FlightMapProps {
   flights: Aircraft[];
+  /** Active provider query area; a change resets trail history. */
   bbox: BoundingBox | null;
+  /** Last perimeter; only drawn and fitted in Perimeter mode. */
+  perimeter: BoundingBox | null;
   mode: SelectionMode;
   direction: DirectionalSelection | null;
   pendingDirectionOrigin: DirectionalOrigin | null;
@@ -405,6 +409,7 @@ interface FlightMapProps {
 export function FlightMap({
   flights,
   bbox,
+  perimeter,
   mode,
   direction,
   pendingDirectionOrigin,
@@ -464,9 +469,8 @@ export function FlightMap({
     [],
   );
 
-  const areaKey = bbox
-    ? `${bbox.lamin}:${bbox.lomin}:${bbox.lamax}:${bbox.lomax}`
-    : null;
+  const areaKey = bboxKey(bbox);
+  const perimeterKey = bboxKey(perimeter);
 
   useEffect(() => {
     // A new area starts a fresh history; stale lines are cleared before the
@@ -675,10 +679,13 @@ export function FlightMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Draw the active perimeter (also the fetched region in View mode) */}
-      {bbox && (
+      {/* The perimeter is only the query shape in Perimeter mode. */}
+      {mode === 'perimeter' && perimeter && (
         <Rectangle
-          bounds={[[bbox.lamin, bbox.lomin], [bbox.lamax, bbox.lomax]]}
+          bounds={[
+            [perimeter.lamin, perimeter.lomin],
+            [perimeter.lamax, perimeter.lomax],
+          ]}
           pathOptions={{ color: '#3b82f6', fillOpacity: 0.05, weight: 1.5 }}
         />
       )}
@@ -700,8 +707,8 @@ export function FlightMap({
       {mode === 'perimeter' ? (
         <>
           <PerimeterFitter
-            bbox={bbox}
-            areaKey={areaKey}
+            bbox={perimeter}
+            areaKey={perimeterKey}
             reducedMotion={reducedMotion}
           />
           <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />

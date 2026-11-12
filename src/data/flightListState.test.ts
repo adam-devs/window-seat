@@ -75,4 +75,42 @@ describe('deriveFlightListState', () => {
       message: 'No aircraft match the current filters.',
     });
   });
+
+  it('uses View wording before an origin is pinned', () => {
+    expect(
+      deriveFlightListState({
+        ...base,
+        hasArea: false,
+        status: 'idle',
+        mode: 'direction',
+      }),
+    ).toEqual({
+      kind: 'no-area',
+      message: 'Pin a view on the map to begin tracking.',
+    });
+  });
+
+  it('uses View wording for an empty or failed view', () => {
+    expect(
+      deriveFlightListState({
+        ...base,
+        status: 'ready',
+        mode: 'direction',
+      }),
+    ).toEqual({
+      kind: 'empty',
+      message: 'No aircraft in this direction right now.',
+    });
+    expect(
+      deriveFlightListState({
+        ...base,
+        status: 'error',
+        mode: 'direction',
+      }),
+    ).toEqual({
+      kind: 'unavailable',
+      message:
+        'Couldn’t load aircraft for this view. Retrying automatically.',
+    });
+  });
 });

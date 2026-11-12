@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import type { Aircraft } from '../data/types';
 import type { FlightStatus } from '../data/flightStatus';
+import type { SelectionMode } from '../types';
 import {
   DEFAULT_FLIGHT_VIEW,
   filterAndSortFlights,
@@ -27,6 +28,7 @@ interface FlightPanelProps {
   providerName: string;
   hasArea: boolean;
   status: FlightStatus;
+  mode: SelectionMode;
   units: UnitSystem;
 }
 
@@ -91,6 +93,7 @@ export function FlightPanel({
   providerName,
   hasArea,
   status,
+  mode,
   units,
 }: FlightPanelProps) {
   const [query, setQuery] = useState('');
@@ -132,7 +135,9 @@ export function FlightPanel({
         ? onGround.length
         : airborne.length;
   const countLabel =
-    filter === 'on-ground' ? `${count} on ground` : `${count} aircraft in area`;
+    filter === 'on-ground'
+      ? `${count} on ground`
+      : `${count} aircraft in ${mode === 'direction' ? 'view' : 'area'}`;
 
   // Last-good rows stay rendered through refreshes and failures; this only
   // describes the empty case.
@@ -141,6 +146,7 @@ export function FlightPanel({
     status,
     visibleCount: visibleFlights.length,
     filtersActive: filtersActive && flights.length > 0,
+    mode,
   });
   // First load may replace the header text; a background refresh appends to the
   // existing "Updated …" line instead of hiding it.

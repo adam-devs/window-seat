@@ -1,6 +1,9 @@
 import type { BudgetStatus } from '../data/budget';
 import type { Cadence } from '../data/policy';
-import { SELECTION_MODE_LABELS } from '../data/directionalView';
+import {
+  SELECTION_MODE_LABELS,
+  type DirectionalSelection,
+} from '../data/directionalView';
 import { selectionInstruction } from '../data/selectionInstructions';
 import type { SelectionMode } from '../types';
 import type { UnitSystem } from '../workspace';
@@ -14,6 +17,7 @@ interface ToolbarProps {
   hasPerimeter: boolean;
   hasDirection: boolean;
   hasPendingOrigin: boolean;
+  direction: DirectionalSelection | null;
   loading: boolean;
   autoRefreshMs: number;
   units: UnitSystem;
@@ -21,6 +25,7 @@ interface ToolbarProps {
   budget: BudgetStatus;
   onAutoRefreshChange: (ms: number) => void;
   onUnitsChange: (units: UnitSystem) => void;
+  onVisibilityChange: (km: number) => void;
   onResetSettings: () => void;
 }
 
@@ -34,6 +39,7 @@ export function Toolbar({
   hasPerimeter,
   hasDirection,
   hasPendingOrigin,
+  direction,
   loading,
   autoRefreshMs,
   units,
@@ -41,6 +47,7 @@ export function Toolbar({
   budget,
   onAutoRefreshChange,
   onUnitsChange,
+  onVisibilityChange,
   onResetSettings,
 }: ToolbarProps) {
   const instruction = selectionInstruction({
@@ -81,10 +88,13 @@ export function Toolbar({
       <SettingsPopover
         autoRefreshMs={autoRefreshMs}
         units={units}
+        mode={mode}
+        direction={direction}
         cadence={cadence}
         budget={budget}
         onChange={onAutoRefreshChange}
         onUnitsChange={onUnitsChange}
+        onVisibilityChange={onVisibilityChange}
         onReset={onResetSettings}
       />
     </div>

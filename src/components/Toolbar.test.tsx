@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Toolbar } from './Toolbar';
 import type { BudgetStatus } from '../data/budget';
+import type { DirectionalSelection } from '../data/directionalView';
 import type { SelectionMode } from '../types';
 
 const budget: BudgetStatus = {
@@ -31,16 +32,19 @@ interface RenderToolbarOptions {
   hasPerimeter?: boolean;
   hasDirection?: boolean;
   hasPendingOrigin?: boolean;
+  direction?: DirectionalSelection | null;
   loading?: boolean;
   onRefresh?: () => void;
   onClear?: () => void;
   onModeChange?: (mode: SelectionMode) => void;
+  onVisibilityChange?: (km: number) => void;
 }
 
 function renderToolbar(options: RenderToolbarOptions = {}) {
   const onRefresh = options.onRefresh ?? vi.fn();
   const onClear = options.onClear ?? vi.fn();
   const onModeChange = options.onModeChange ?? vi.fn();
+  const onVisibilityChange = options.onVisibilityChange ?? vi.fn();
   const onUnitsChange = vi.fn();
 
   const view = render(
@@ -52,6 +56,7 @@ function renderToolbar(options: RenderToolbarOptions = {}) {
       hasPerimeter={options.hasPerimeter ?? false}
       hasDirection={options.hasDirection ?? false}
       hasPendingOrigin={options.hasPendingOrigin ?? false}
+      direction={options.direction ?? null}
       loading={options.loading ?? false}
       autoRefreshMs={30_000}
       units="aviation"
@@ -59,11 +64,19 @@ function renderToolbar(options: RenderToolbarOptions = {}) {
       budget={budget}
       onAutoRefreshChange={vi.fn()}
       onUnitsChange={onUnitsChange}
+      onVisibilityChange={onVisibilityChange}
       onResetSettings={vi.fn()}
     />,
   );
 
-  return { ...view, onRefresh, onClear, onModeChange, onUnitsChange };
+  return {
+    ...view,
+    onRefresh,
+    onClear,
+    onModeChange,
+    onUnitsChange,
+    onVisibilityChange,
+  };
 }
 
 afterEach(cleanup);
@@ -111,6 +124,7 @@ describe('Toolbar', () => {
         hasPerimeter={false}
         hasDirection={false}
         hasPendingOrigin
+        direction={null}
         loading={false}
         autoRefreshMs={30_000}
         units="aviation"
@@ -118,6 +132,7 @@ describe('Toolbar', () => {
         budget={budget}
         onAutoRefreshChange={vi.fn()}
         onUnitsChange={vi.fn()}
+        onVisibilityChange={vi.fn()}
         onResetSettings={vi.fn()}
       />,
     );
