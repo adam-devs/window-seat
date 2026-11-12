@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FlightMap } from './components/FlightMap';
 import { FlightPanel } from './components/FlightPanel';
 import { Toolbar } from './components/Toolbar';
@@ -24,13 +24,17 @@ export default function App() {
   const [selectedFlight, setSelectedFlight] = useState<string | null>(null);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
-  // Active bounding box fed into the hook
-  const activeBbox: BoundingBox | null =
-    mode === 'location' && locationCenter
-      ? bboxFromPoint(locationCenter[0], locationCenter[1], radiusKm)
-      : mode === 'perimeter'
-      ? perimeterBbox
-      : null;
+  // Active bounding box fed into the hook. Memoized so a re-render does not
+  // look like an area change and abort the in-flight request.
+  const activeBbox: BoundingBox | null = useMemo(
+    () =>
+      mode === 'location' && locationCenter
+        ? bboxFromPoint(locationCenter[0], locationCenter[1], radiusKm)
+        : mode === 'perimeter'
+          ? perimeterBbox
+          : null,
+    [mode, locationCenter, radiusKm, perimeterBbox],
+  );
 
   const { flights, loading, error, lastUpdated, refresh } = useFlights(activeBbox);
 

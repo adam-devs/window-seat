@@ -22,7 +22,10 @@ export function parseStateVector(raw: RawStateVector): StateVector {
   };
 }
 
-export async function fetchFlights(bbox: BoundingBox): Promise<StateVector[]> {
+export async function fetchFlights(
+  bbox: BoundingBox,
+  signal?: AbortSignal,
+): Promise<StateVector[]> {
   const params = new URLSearchParams({
     lamin: bbox.lamin.toString(),
     lomin: bbox.lomin.toString(),
@@ -32,7 +35,7 @@ export async function fetchFlights(bbox: BoundingBox): Promise<StateVector[]> {
 
   // Uses the Vite dev proxy to avoid CORS issues in dev.
   // The proxy also injects OpenSky OAuth credentials from `.env.local` when set.
-  const res = await fetch(`/opensky/api/states/all?${params.toString()}`);
+  const res = await fetch(`/opensky/api/states/all?${params.toString()}`, { signal });
 
   if (!res.ok) {
     throw new Error(`OpenSky API error: ${res.status} ${res.statusText}`);

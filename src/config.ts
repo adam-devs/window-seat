@@ -41,6 +41,12 @@ export interface AppConfig {
   /** Data older than this is considered stale (3 missed defaults). */
   staleAfterMs: number;
   requestTimeoutMs: number;
+  /** First retry delay after a transient failure. */
+  backoffBaseMs: number;
+  /** Ceiling for the exponential part of the retry delay. */
+  backoffMaxMs: number;
+  /** Symmetric jitter applied to retry delays, 0–1. */
+  backoffJitterRatio: number;
   dailyBudget: number;
   budgetReserveRatio: number;
   budgetPauseRatio: number;
@@ -60,6 +66,9 @@ export const config: AppConfig = {
   minManualRefreshMs: 10_000,
   staleAfterMs: 90_000,
   requestTimeoutMs: 15_000,
+  backoffBaseMs: 2_000,
+  backoffMaxMs: 60_000,
+  backoffJitterRatio: 0.2,
   dailyBudget: DAILY_BUDGET,
   budgetReserveRatio: BUDGET_RESERVE_RATIO,
   budgetPauseRatio: BUDGET_PAUSE_RATIO,
