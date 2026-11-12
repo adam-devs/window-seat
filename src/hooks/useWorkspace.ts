@@ -5,6 +5,7 @@ import {
   DEFAULT_WORKSPACE,
   WORKSPACE_STORAGE_KEY,
   type DirectionalSelection,
+  type SavedSelection,
   type ThemePreference,
   type UnitSystem,
   type Workspace,
@@ -19,6 +20,7 @@ export interface UseWorkspaceResult {
   setPerimeter: (perimeter: BoundingBox | null) => void;
   setMode: (mode: SelectionMode) => void;
   setDirection: (direction: DirectionalSelection | null) => void;
+  setSavedSelections: (selections: SavedSelection[]) => void;
   setUnits: (units: UnitSystem) => void;
   setTheme: (theme: ThemePreference) => void;
   setAutoRefreshMs: (ms: number) => void;
@@ -73,6 +75,13 @@ export function useWorkspace(): UseWorkspaceResult {
     [apply],
   );
 
+  const setSavedSelections = useCallback(
+    (savedSelections: SavedSelection[]) => {
+      apply({ ...workspaceRef.current, savedSelections });
+    },
+    [apply],
+  );
+
   const setUnits = useCallback(
     (units: UnitSystem) => {
       apply({ ...workspaceRef.current, units });
@@ -118,7 +127,11 @@ export function useWorkspace(): UseWorkspaceResult {
 
     function handleStorage(event: StorageEvent) {
       if (event.key !== WORKSPACE_STORAGE_KEY) return;
-      setWorkspaceState(parseWorkspaceJson(event.newValue));
+      const next = parseWorkspaceJson(event.newValue);
+      // Adopt immediately so a setter fired before the next render cannot
+      // overwrite the other tab's change with stale state.
+      workspaceRef.current = next;
+      setWorkspaceState(next);
     }
 
     window.addEventListener('storage', handleStorage);
@@ -130,6 +143,7 @@ export function useWorkspace(): UseWorkspaceResult {
     setPerimeter,
     setMode,
     setDirection,
+    setSavedSelections,
     setUnits,
     setTheme,
     setAutoRefreshMs,

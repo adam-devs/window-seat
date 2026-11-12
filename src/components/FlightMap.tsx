@@ -203,12 +203,14 @@ interface PerimeterFitterProps {
   bbox: BoundingBox | null;
   areaKey: string | null;
   reducedMotion: boolean;
+  fitToken: number;
 }
 
 function PerimeterFitter({
   bbox,
   areaKey,
   reducedMotion,
+  fitToken,
 }: PerimeterFitterProps) {
   const map = useMap();
 
@@ -228,7 +230,7 @@ function PerimeterFitter({
       );
     });
     return () => cancelAnimationFrame(frame);
-  }, [map, areaKey, reducedMotion]);
+  }, [map, areaKey, reducedMotion, fitToken]);
 
   return null;
 }
@@ -237,9 +239,14 @@ function PerimeterFitter({
 interface DirectionFitterProps {
   direction: DirectionalSelection | null;
   reducedMotion: boolean;
+  fitToken: number;
 }
 
-function DirectionFitter({ direction, reducedMotion }: DirectionFitterProps) {
+function DirectionFitter({
+  direction,
+  reducedMotion,
+  fitToken,
+}: DirectionFitterProps) {
   const map = useMap();
   const areaKey = direction
     ? `${direction.origin.latitude}:${direction.origin.longitude}:${direction.bearingDeg}:${direction.angleDeg}:${direction.visibilityKm}`
@@ -267,7 +274,7 @@ function DirectionFitter({ direction, reducedMotion }: DirectionFitterProps) {
       );
     });
     return () => cancelAnimationFrame(frame);
-  }, [map, areaKey, reducedMotion]);
+  }, [map, areaKey, reducedMotion, fitToken]);
 
   return null;
 }
@@ -403,6 +410,8 @@ interface FlightMapProps {
   onSelectFlight: (icao24: string | null) => void;
   /** Current user cadence; tightens the dead-reckoning cap. */
   refreshIntervalMs: number;
+  /** Increment to re-fit the map even when the selection is unchanged. */
+  fitToken: number;
   units: UnitSystem;
 }
 
@@ -419,6 +428,7 @@ export function FlightMap({
   selectedFlight,
   onSelectFlight,
   refreshIntervalMs,
+  fitToken,
   units,
 }: FlightMapProps) {
   const reducedMotion = useReducedMotion();
@@ -710,6 +720,7 @@ export function FlightMap({
             bbox={perimeter}
             areaKey={perimeterKey}
             reducedMotion={reducedMotion}
+            fitToken={fitToken}
           />
           <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
         </>
@@ -718,6 +729,7 @@ export function FlightMap({
           <DirectionFitter
             direction={direction}
             reducedMotion={reducedMotion}
+            fitToken={fitToken}
           />
           <DirectionPicker
             direction={direction}

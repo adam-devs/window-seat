@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 428 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 469 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -258,6 +258,8 @@ Subsequent status:
 - The M3.5 View interaction (pin, bearing, cone), cone query/filter,
   visibility-distance/cost controls, persistence, and empty states are
   implemented and verified by `npm run view:check`.
+- The M3.6 saved-area/View library is implemented and verified by
+  `npm run saved:check`; mobile/accessibility remains M4.
 - Mobile/accessibility (M4) and the visual pass (M5) remain deferred.
 - Community providers remain deferred.
 - Lint/CI remain unconfigured; tests and the production build are the current
@@ -274,7 +276,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 428 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 469 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -585,31 +587,54 @@ interface FlightProvider {
 
 ### 6.4 Persistence schema
 
-**Current stores:** the legacy `window-seat:settings:v1` refresh key is read for
-migration; `window-seat:workspace:v1` implements the schema below and App now
-restores the saved perimeter on startup (auto-fit included). Units/theme UI is
-pending M3.4; budget usage remains in `window-seat:budget:v1`. Location/radius
+**Current stores:** the legacy `window-seat:settings:v1` refresh key and the
+previous `window-seat:workspace:v1` envelope are read for migration.
+`window-seat:workspace:v2` implements the schema below and App restores the
+active perimeter or View on startup (auto-fit included). Units and theme are
+persisted; budget usage remains in `window-seat:budget:v1`. Location/radius
 fields were removed with M2.0.
 
 ```ts
-interface StoredWorkspaceV1 {
-  version: 1;
+interface StoredWorkspaceV2 {
+  version: 2;
   perimeter: BoundingBox | null;
   mode: 'perimeter' | 'direction';
   direction: {
-    origin: { lat: number; lng: number };
+    origin: { latitude: number; longitude: number };
     bearingDeg: number;
     angleDeg: number;
     visibilityKm: number;
   } | null;
+  savedSelections: SavedSelection[];
   units: 'aviation' | 'metric';
-  theme: 'dark' | 'light';
-  refreshMs: number;
+  theme: 'system' | 'light' | 'dark';
+  autoRefreshMs: number;
   providerId: string | null;
 }
+
+type SavedSelection =
+  | {
+      id: string;
+      name: string;
+      kind: 'perimeter';
+      perimeter: BoundingBox;
+      createdAt: number;
+      updatedAt: number;
+    }
+  | {
+      id: string;
+      name: string;
+      kind: 'direction';
+      direction: DirectionalSelection;
+      createdAt: number;
+      updatedAt: number;
+    };
 ```
 
-Unknown or invalid payloads fall back to defaults; never throw during startup.
+Each saved entry is validated independently; malformed entries and duplicate IDs
+are dropped without resetting the workspace. The library is capped at 30
+entries with 60-character names. Unknown or invalid payloads fall back to
+defaults; startup never throws.
 
 ### 6.5 Provider field mapping
 
@@ -692,7 +717,7 @@ area changes.
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
   🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
   trail, visual-state, list controls, and performance-harness coverage are in
-  place (428
+  place (469
   tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
@@ -703,8 +728,9 @@ area changes.
 
 | Feature | Current | Target | Priority |
 | --- | --- | --- | --- |
-| Saved perimeter workspace | ⛔ | M3 | P1 |
-| Restore workspace on load | ⛔ | M3 | P1 |
+| Saved perimeter workspace | ✅ last active + named library schema | M3.6 | P1 |
+| Restore workspace on load | ✅ perimeter/View, units, theme, refresh | M3.2 | P1 |
+| Saved areas/views library | ✅ save/restore/rename/delete, migration, robustness, verified | M3.6 | P1 |
 | Place search | Removed (M2.0) | — | — |
 | GPS location | Removed (M2.0) | — | — |
 | Radius control | Removed (M2.0) | — | — |
@@ -732,7 +758,7 @@ area changes.
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | 🟡 labels/focus started | F9 | P2 |
-| Tests / lint / CI | 🟡 428 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 469 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -755,7 +781,7 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 428 tests and production build added; favicon and lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 469 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
 
@@ -805,3 +831,8 @@ area changes.
 | 2026-11-12 | **M3.5.5 implemented:** Settings gained 25/50/100/200 km View distances, a disabled-until-pinned state, over-limit disabling with a “Too large” note, and an effective area/credit-cost summary with warnings. Distance changes update the persisted view, refetch the cone bbox, and refilter. 421 tests, typecheck, and build pass; Chrome verified 100→50 km changes the request, list/marker set, stored distance, and survives reload. Remaining View state polish is tracked in M3.5.6. |
 | 2026-11-12 | **M3.5.6 implemented:** `useFlights` selection keys rekey last-good data on every mode/perimeter/direction change, including bearing changes that leave the bbox unchanged. Failures within the same selection retain filtered rows. The panel now uses direction-aware no-area, empty, and failure copy plus “N aircraft in view” counts. 427 tests, typecheck, and build pass; Chrome verified 503 retention, View-mode reload restore, and empty-direction copy. |
 | 2026-11-12 | **M3.5.7 implemented:** Added the repeatable `npm run view:check` desktop/mobile Chrome harness for synthetic-aircraft filtering/parity, request and abort tracking, keyboard View/distance/Escape behavior, persisted reload, rapid changes, popover fit, and empty-direction copy. Added an abort/rekey hook test and fixed a mobile Settings-popover overflow. 428 tests, harness, typecheck, and build pass. M3.5 is complete. |
+| 2026-11-12 | **M3.6.1 implemented:** Workspace schema v2 (`window-seat:workspace:v2`) adds a validated saved perimeter/View library with stable IDs, timestamps, duplicate removal, 60-character names, and a 30-entry cap. Reads migrate from the v1 workspace key (then legacy settings) while preserving the active selection and settings. 440 tests, typecheck, and build pass; Chrome verified v1→v2 migration. Saved-library UI remains pending. |
+| 2026-11-12 | **M3.6.2 implemented:** Added pure create/add/rename/delete/update operations for saved perimeters and Views, default `Perimeter N`/`View N` naming with case-insensitive deduplication, bounded adds, ID/createdAt preservation on update, and exact active-selection matching. 454 tests, typecheck, and build pass. Toolbar UI remains pending. |
+| 2026-11-12 | **M3.6.3 implemented:** Added the Saved areas toolbar popover with save/save-as, Update when the active selection matches, restore with fetch and map re-fit, inline rename/delete, active marking, relative last-used time, keyboard dismissal/focus return, and a mobile sheet. 468 tests, typecheck, and build pass; Chrome verified the full library lifecycle and mobile fit. |
+| 2026-11-12 | **M3.6.4 implemented:** Cross-tab storage updates now adopt the parsed workspace immediately; saved-library CRUD syncs across tabs, invalid entries are skipped while valid settings survive, and failed writes keep working in memory. 469 tests, typecheck, and build pass; Chrome verified cross-tab save/rename/delete, corrupt-entry filtering, and failed-write operation. Final M3.6 verification remains. |
+| 2026-11-12 | **M3.6.5 implemented:** Added `npm run saved:check` for the full two-perimeter/one-View lifecycle, restore/rename/delete persistence, v1 migration, cap/invalid entries, and mobile layout. Re-ran and stabilized `view:check`. 469 tests and both browser harnesses pass; typecheck and build pass. M3 and M3.6 are complete. |

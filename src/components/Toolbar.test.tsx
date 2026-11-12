@@ -5,7 +5,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Toolbar } from './Toolbar';
 import type { BudgetStatus } from '../data/budget';
 import type { DirectionalSelection } from '../data/directionalView';
-import type { SelectionMode } from '../types';
+import type { SavedSelection } from '../data/savedSelections';
+import type { BoundingBox, SelectionMode } from '../types';
+
+const perimeterBox: BoundingBox = {
+  lamin: 50,
+  lomin: -1,
+  lamax: 51,
+  lomax: 0,
+};
 
 const budget: BudgetStatus = {
   providerId: 'opensky',
@@ -29,10 +37,11 @@ const budget: BudgetStatus = {
 
 interface RenderToolbarOptions {
   mode?: SelectionMode;
-  hasPerimeter?: boolean;
+  perimeter?: BoundingBox | null;
   hasDirection?: boolean;
   hasPendingOrigin?: boolean;
   direction?: DirectionalSelection | null;
+  savedSelections?: SavedSelection[];
   loading?: boolean;
   onRefresh?: () => void;
   onClear?: () => void;
@@ -53,10 +62,11 @@ function renderToolbar(options: RenderToolbarOptions = {}) {
       onClear={onClear}
       mode={options.mode ?? 'perimeter'}
       onModeChange={onModeChange}
-      hasPerimeter={options.hasPerimeter ?? false}
+      perimeter={options.perimeter ?? null}
       hasDirection={options.hasDirection ?? false}
       hasPendingOrigin={options.hasPendingOrigin ?? false}
       direction={options.direction ?? null}
+      savedSelections={options.savedSelections ?? []}
       loading={options.loading ?? false}
       autoRefreshMs={30_000}
       units="aviation"
@@ -65,6 +75,11 @@ function renderToolbar(options: RenderToolbarOptions = {}) {
       onAutoRefreshChange={vi.fn()}
       onUnitsChange={onUnitsChange}
       onVisibilityChange={onVisibilityChange}
+      onSaveSelection={vi.fn()}
+      onUpdateSelection={vi.fn()}
+      onRestoreSelection={vi.fn()}
+      onRenameSelection={vi.fn()}
+      onDeleteSelection={vi.fn()}
       onResetSettings={vi.fn()}
     />,
   );
@@ -83,7 +98,7 @@ afterEach(cleanup);
 
 describe('Toolbar', () => {
   it('shows perimeter drawing instructions', () => {
-    renderToolbar({ mode: 'perimeter', hasPerimeter: true });
+    renderToolbar({ mode: 'perimeter', perimeter: perimeterBox });
 
     expect(
       screen.getByText('Perimeter set — click two new corners to redraw.'),
@@ -121,10 +136,11 @@ describe('Toolbar', () => {
         onClear={vi.fn()}
         mode="direction"
         onModeChange={vi.fn()}
-        hasPerimeter={false}
+        perimeter={null}
         hasDirection={false}
         hasPendingOrigin
         direction={null}
+        savedSelections={[]}
         loading={false}
         autoRefreshMs={30_000}
         units="aviation"
@@ -133,6 +149,11 @@ describe('Toolbar', () => {
         onAutoRefreshChange={vi.fn()}
         onUnitsChange={vi.fn()}
         onVisibilityChange={vi.fn()}
+        onSaveSelection={vi.fn()}
+        onUpdateSelection={vi.fn()}
+        onRestoreSelection={vi.fn()}
+        onRenameSelection={vi.fn()}
+        onDeleteSelection={vi.fn()}
         onResetSettings={vi.fn()}
       />,
     );
@@ -166,5 +187,13 @@ describe('Toolbar', () => {
 
     const refresh = screen.getByRole('button', { name: /Refresh$/ });
     expect((refresh as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('provides a Saved areas trigger', () => {
+    renderToolbar();
+
+    expect(
+      screen.getByRole('button', { name: 'Saved areas' }),
+    ).toBeTruthy();
   });
 });

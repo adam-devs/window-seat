@@ -24,6 +24,15 @@ import {
   filterFlightsForSelection,
   selectionBbox,
 } from './data/selectionArea';
+import {
+  addSavedSelection,
+  createSavedDirection,
+  createSavedPerimeter,
+  deleteSavedSelection,
+  renameSavedSelection,
+  touchSavedSelection,
+  updateSavedSelection,
+} from './data/savedSelections';
 import { DEFAULT_SETTINGS } from './settings';
 import './app.css';
 
@@ -33,10 +42,14 @@ export default function App() {
     setPerimeter,
     setDirection,
     setMode,
+    setSavedSelections,
     setAutoRefreshMs,
     setUnits,
   } = useWorkspace();
   const [selectedFlight, setSelectedFlight] = useState<string | null>(null);
+  // Restoring a saved entry re-fits the map even when the geometry is already
+  // active, so incrementing this token is meaningful.
+  const [fitToken, setFitToken] = useState(0);
   // The first View click only pins the origin; the direction is created by the
   // second click. Keeping it here lets Clear and mode changes reset the step and
   // lets the toolbar explain what to click next.
@@ -165,6 +178,125 @@ export default function App() {
     [workspace.direction, setDirection],
   );
 
+  const handleSaveSelection = useCallback(
+    (name: string) => {
+      if (workspace.mode === 'direction') {
+        if (!workspace.direction) return;
+        const entry = createSavedDirection(
+          workspace.direction,
+          workspace.savedSelections,
+          { name },
+        );
+        if (entry) {
+          setSavedSelections(
+            addSavedSelection(workspace.savedSelections, entry),
+          );
+        }
+        return;
+      }
+
+      if (!workspace.perimeter) return;
+      const entry = createSavedPerimeter(
+        workspace.perimeter,
+        workspace.savedSelections,
+        { name },
+      );
+      if (entry) {
+        setSavedSelections(
+          addSavedSelection(workspace.savedSelections, entry),
+        );
+      }
+    },
+    [
+      workspace.mode,
+      workspace.perimeter,
+      workspace.direction,
+      workspace.savedSelections,
+      setSavedSelections,
+    ],
+  );
+
+  const handleUpdateSelection = useCallback(
+    (id: string) => {
+      const entry = workspace.savedSelections.find(
+        (selection) => selection.id === id,
+      );
+      if (!entry) return;
+
+      if (entry.kind === 'perimeter') {
+        if (!workspace.perimeter) return;
+        setSavedSelections(
+          updateSavedSelection(workspace.savedSelections, id, {
+            ...entry,
+            perimeter: workspace.perimeter,
+          }),
+        );
+        return;
+      }
+
+      if (!workspace.direction) return;
+      setSavedSelections(
+        updateSavedSelection(workspace.savedSelections, id, {
+          ...entry,
+          direction: workspace.direction,
+        }),
+      );
+    },
+    [
+      workspace.savedSelections,
+      workspace.perimeter,
+      workspace.direction,
+      setSavedSelections,
+    ],
+  );
+
+  const handleRestoreSelection = useCallback(
+    (id: string) => {
+      const entry = workspace.savedSelections.find(
+        (selection) => selection.id === id,
+      );
+      if (!entry) return;
+
+      setSelectedFlight(null);
+      setPendingDirectionOrigin(null);
+      if (entry.kind === 'perimeter') {
+        setPerimeter(entry.perimeter);
+        setMode('perimeter');
+      } else {
+        setDirection(entry.direction);
+      }
+      setSavedSelections(
+        touchSavedSelection(workspace.savedSelections, entry.id),
+      );
+      setFitToken((token) => token + 1);
+    },
+    [
+      workspace.savedSelections,
+      setPerimeter,
+      setMode,
+      setDirection,
+      setSavedSelections,
+    ],
+  );
+
+  const handleRenameSelection = useCallback(
+    (id: string, name: string) => {
+      setSavedSelections(
+        renameSavedSelection(workspace.savedSelections, id, name),
+      );
+    },
+    [workspace.savedSelections, setSavedSelections],
+  );
+
+  const handleDeleteSelection = useCallback(
+    (id: string) => {
+      setSavedSelections(
+        deleteSavedSelection(workspace.savedSelections, id),
+      );
+    },
+    [workspace.savedSelections, setSavedSelections],
+  );
+
   const resetRefreshInterval = useCallback(() => {
     setAutoRefreshMs(DEFAULT_SETTINGS.autoRefreshMs);
   }, [setAutoRefreshMs]);
@@ -176,10 +308,11 @@ export default function App() {
         onClear={handleClear}
         mode={workspace.mode}
         onModeChange={handleModeChange}
-        hasPerimeter={workspace.perimeter !== null}
+        perimeter={workspace.perimeter}
         hasDirection={workspace.direction !== null}
         hasPendingOrigin={pendingDirectionOrigin !== null}
         direction={workspace.direction}
+        savedSelections={workspace.savedSelections}
         loading={loading}
         autoRefreshMs={workspace.autoRefreshMs}
         units={workspace.units}
@@ -188,6 +321,11 @@ export default function App() {
         onAutoRefreshChange={setAutoRefreshMs}
         onUnitsChange={setUnits}
         onVisibilityChange={handleVisibilityChange}
+        onSaveSelection={handleSaveSelection}
+        onUpdateSelection={handleUpdateSelection}
+        onRestoreSelection={handleRestoreSelection}
+        onRenameSelection={handleRenameSelection}
+        onDeleteSelection={handleDeleteSelection}
         onResetSettings={resetRefreshInterval}
       />
 
@@ -214,6 +352,7 @@ export default function App() {
             selectedFlight={selectedFlight}
             onSelectFlight={setSelectedFlight}
             refreshIntervalMs={workspace.autoRefreshMs}
+            fitToken={fitToken}
             units={workspace.units}
           />
         </div>

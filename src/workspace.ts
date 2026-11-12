@@ -4,6 +4,11 @@ import {
   normalizeDirectionalSelection,
   type DirectionalSelection,
 } from './data/directionalView';
+import { parseBoundingBox } from './data/geometry';
+import {
+  parseSavedSelections,
+  type SavedSelection,
+} from './data/savedSelections';
 import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
@@ -12,18 +17,24 @@ import {
 } from './settings';
 
 export type { DirectionalSelection } from './data/directionalView';
+export type {
+  SavedDirection,
+  SavedPerimeter,
+  SavedSelection,
+  SavedSelectionKind,
+} from './data/savedSelections';
 
 /**
  * Versioned local workspace.
  *
- * This is separate from the legacy refresh-only settings key so the schema can
- * grow without breaking existing installs. `loadWorkspace` migrates the old
- * refresh interval on first read; the UI still uses `useSettings` until M3.2
- * switches startup restore over to the workspace hook.
+ * `window-seat:workspace:v2` adds the saved perimeter/View library. Reads fall
+ * back to the v1 workspace key, then the legacy refresh-only settings key, so
+ * existing installs migrate on first load and the hook writes the v2 envelope.
  */
 
-export const WORKSPACE_STORAGE_KEY = 'window-seat:workspace:v1';
-export const WORKSPACE_VERSION = 1;
+export const WORKSPACE_STORAGE_KEY = 'window-seat:workspace:v2';
+export const LEGACY_WORKSPACE_STORAGE_KEY = 'window-seat:workspace:v1';
+export const WORKSPACE_VERSION = 2;
 
 export type UnitSystem = 'aviation' | 'metric';
 export type ThemePreference = 'system' | 'light' | 'dark';
@@ -32,6 +43,8 @@ export interface Workspace {
   perimeter: BoundingBox | null;
   mode: SelectionMode;
   direction: DirectionalSelection | null;
+  /** Named perimeters and directional views, newest last on save. */
+  savedSelections: SavedSelection[];
   units: UnitSystem;
   theme: ThemePreference;
   autoRefreshMs: number;
@@ -46,6 +59,7 @@ export const DEFAULT_WORKSPACE: Workspace = {
   perimeter: null,
   mode: 'perimeter',
   direction: null,
+  savedSelections: [],
   units: 'aviation',
   theme: 'system',
   autoRefreshMs: DEFAULT_SETTINGS.autoRefreshMs,
@@ -54,39 +68,6 @@ export const DEFAULT_WORKSPACE: Workspace = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function finiteNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function parseBoundingBox(value: unknown): BoundingBox | null {
-  if (!isRecord(value)) return null;
-
-  const lamin = finiteNumber(value.lamin);
-  const lamax = finiteNumber(value.lamax);
-  const lomin = finiteNumber(value.lomin);
-  const lomax = finiteNumber(value.lomax);
-  if (
-    lamin === null ||
-    lamax === null ||
-    lomin === null ||
-    lomax === null ||
-    lamin < -90 ||
-    lamax > 90 ||
-    lomin < -180 ||
-    lomax > 180
-  ) {
-    return null;
-  }
-
-  const south = Math.min(lamin, lamax);
-  const north = Math.max(lamin, lamax);
-  const west = Math.min(lomin, lomax);
-  const east = Math.max(lomin, lomax);
-  if (south === north || west === east) return null;
-
-  return { lamin: south, lomin: west, lamax: north, lomax: east };
 }
 
 function parseUnits(value: unknown): UnitSystem {
@@ -115,6 +96,7 @@ export function parseWorkspace(value: unknown): Workspace {
     perimeter: parseBoundingBox(value.perimeter),
     mode,
     direction,
+    savedSelections: parseSavedSelections(value.savedSelections),
     units: parseUnits(value.units),
     theme: parseTheme(value.theme),
     autoRefreshMs:
@@ -131,12 +113,12 @@ export function parseWorkspaceJson(raw: string | null): Workspace {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) return { ...DEFAULT_WORKSPACE };
-    if (
-      parsed.version !== undefined &&
-      parsed.version !== WORKSPACE_VERSION
-    ) {
-      return { ...DEFAULT_WORKSPACE };
-    }
+    // v1 is the previous envelope; parsing it adds an empty saved library.
+    const supported =
+      parsed.version === undefined ||
+      parsed.version === 1 ||
+      parsed.version === WORKSPACE_VERSION;
+    if (!supported) return { ...DEFAULT_WORKSPACE };
     return parseWorkspace(parsed);
   } catch {
     return { ...DEFAULT_WORKSPACE };
@@ -165,6 +147,11 @@ export function loadWorkspace(
   try {
     const stored = storage.getItem(WORKSPACE_STORAGE_KEY);
     if (stored !== null) return parseWorkspaceJson(stored);
+
+    // Migrate the previous workspace envelope before falling back to the
+    // refresh-only settings key.
+    const previous = storage.getItem(LEGACY_WORKSPACE_STORAGE_KEY);
+    if (previous !== null) return parseWorkspaceJson(previous);
 
     const legacy = storage.getItem(SETTINGS_STORAGE_KEY);
     return legacy === null

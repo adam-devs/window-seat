@@ -58,6 +58,21 @@ reload state, and the empty-direction copy. Useful overrides:
 - `VIEW_REQUEST_DELAY_MS` (default `350`)
 - `VIEW_CHANNEL` (default `chrome`)
 
+## Saved-library check
+
+With the dev server running, verify the saved areas/views library:
+
+```bash
+npm run saved:check
+```
+
+The harness covers two saved perimeters plus one View, reload and restore,
+rename/delete persistence, v1 workspace migration, the 30-entry cap with invalid
+entries, and the mobile popover layout. It uses Google Chrome via Playwright:
+
+- `SAVED_BASE_URL` (default `http://localhost:5173/`)
+- `SAVED_CHANNEL` (default `chrome`)
+
 ## Notes on the OpenSky API
 
 - The app is intended to run **locally** via `npm run dev`.

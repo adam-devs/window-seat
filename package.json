@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "perf:check": "node scripts/perf-check.mjs",
-    "view:check": "node scripts/view-check.mjs"
+    "view:check": "node scripts/view-check.mjs",
+    "saved:check": "node scripts/saved-check.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.8",

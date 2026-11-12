@@ -5,8 +5,10 @@ import {
   type DirectionalSelection,
 } from '../data/directionalView';
 import { selectionInstruction } from '../data/selectionInstructions';
-import type { SelectionMode } from '../types';
+import type { SavedSelection } from '../data/savedSelections';
+import type { BoundingBox, SelectionMode } from '../types';
 import type { UnitSystem } from '../workspace';
+import { SavedAreasPopover } from './SavedAreasPopover';
 import { SettingsPopover } from './SettingsPopover';
 
 interface ToolbarProps {
@@ -14,10 +16,11 @@ interface ToolbarProps {
   onClear: () => void;
   mode: SelectionMode;
   onModeChange: (mode: SelectionMode) => void;
-  hasPerimeter: boolean;
+  perimeter: BoundingBox | null;
   hasDirection: boolean;
   hasPendingOrigin: boolean;
   direction: DirectionalSelection | null;
+  savedSelections: SavedSelection[];
   loading: boolean;
   autoRefreshMs: number;
   units: UnitSystem;
@@ -26,6 +29,11 @@ interface ToolbarProps {
   onAutoRefreshChange: (ms: number) => void;
   onUnitsChange: (units: UnitSystem) => void;
   onVisibilityChange: (km: number) => void;
+  onSaveSelection: (name: string) => void;
+  onUpdateSelection: (id: string) => void;
+  onRestoreSelection: (id: string) => void;
+  onRenameSelection: (id: string, name: string) => void;
+  onDeleteSelection: (id: string) => void;
   onResetSettings: () => void;
 }
 
@@ -36,10 +44,11 @@ export function Toolbar({
   onClear,
   mode,
   onModeChange,
-  hasPerimeter,
+  perimeter,
   hasDirection,
   hasPendingOrigin,
   direction,
+  savedSelections,
   loading,
   autoRefreshMs,
   units,
@@ -48,11 +57,16 @@ export function Toolbar({
   onAutoRefreshChange,
   onUnitsChange,
   onVisibilityChange,
+  onSaveSelection,
+  onUpdateSelection,
+  onRestoreSelection,
+  onRenameSelection,
+  onDeleteSelection,
   onResetSettings,
 }: ToolbarProps) {
   const instruction = selectionInstruction({
     mode,
-    hasPerimeter,
+    hasPerimeter: perimeter !== null,
     hasDirection,
     hasPendingOrigin,
   });
@@ -84,6 +98,18 @@ export function Toolbar({
       <button className="refresh-btn" onClick={onRefresh} disabled={loading}>
         {loading ? '⏳' : '🔄'} Refresh
       </button>
+
+      <SavedAreasPopover
+        selections={savedSelections}
+        mode={mode}
+        perimeter={perimeter}
+        direction={direction}
+        onSave={onSaveSelection}
+        onUpdate={onUpdateSelection}
+        onRestore={onRestoreSelection}
+        onRename={onRenameSelection}
+        onDelete={onDeleteSelection}
+      />
 
       <SettingsPopover
         autoRefreshMs={autoRefreshMs}

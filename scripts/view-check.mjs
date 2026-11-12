@@ -139,7 +139,7 @@ async function rows(page) {
 
 async function storedDirection(page) {
   return page.evaluate(() => {
-    const raw = localStorage.getItem('window-seat:workspace:v1');
+    const raw = localStorage.getItem('window-seat:workspace:v2');
     return raw === null ? null : JSON.parse(raw).direction;
   });
 }
@@ -169,6 +169,17 @@ async function waitForRequestStart(tracking, count) {
   assert.ok(
     tracking.started >= count,
     'expected the selection change to start a request',
+  );
+}
+
+async function waitForAbort(tracking, before) {
+  const deadline = Date.now() + 5_000;
+  while (tracking.aborted <= before && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.ok(
+    tracking.aborted > before,
+    'the superseded rapid-change request should be aborted',
   );
 }
 
@@ -208,9 +219,10 @@ async function runViewport(browser, viewport) {
   });
 
   const tracking = attachRequestTracking(page);
+  let requestDelayMs = REQUEST_DELAY_MS;
   await page.route('**/opensky/api/states/all*', async (route) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
+      await new Promise((resolve) => setTimeout(resolve, requestDelayMs));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -337,29 +349,29 @@ async function runViewport(browser, viewport) {
       await page.locator('.settings-popover').waitFor();
       const beforeRapid = tracking.started;
       const beforeAborted = tracking.aborted;
+      // Keep the first rapid request in flight long enough that the second
+      // change definitely supersedes it rather than arriving after completion.
+      requestDelayMs = Math.max(REQUEST_DELAY_MS, 900);
       await page.getByRole('radio', { name: /^25 km/ }).click();
       await waitForRequestStart(tracking, beforeRapid + 1);
       await page.getByRole('radio', { name: /^200 km/ }).click();
       await waitForRequestStart(tracking, beforeRapid + 2);
-      await page.waitForTimeout(REQUEST_DELAY_MS + 900);
+      await waitForAbort(tracking, beforeAborted);
 
       direction = await storedDirection(page);
       expected = expectedCallsigns(direction);
       await waitForRows(page, expected);
       assert.equal(direction.visibilityKm, 200);
-      assert.ok(
-        tracking.aborted > beforeAborted,
-        'the superseded rapid-change request should be aborted',
-      );
       assert.equal(
         tracking.started - beforeRapid,
         2,
         'each completed change should start exactly one request',
       );
+      requestDelayMs = REQUEST_DELAY_MS;
 
       // Empty-direction copy after a persisted view change.
       await page.evaluate(() => {
-        const key = 'window-seat:workspace:v1';
+        const key = 'window-seat:workspace:v2';
         const workspace = JSON.parse(localStorage.getItem(key));
         workspace.mode = 'direction';
         workspace.direction = {

@@ -6,6 +6,7 @@ import {
 } from './settings';
 import {
   DEFAULT_WORKSPACE,
+  LEGACY_WORKSPACE_STORAGE_KEY,
   WORKSPACE_STORAGE_KEY,
   WORKSPACE_VERSION,
   loadWorkspace,
@@ -66,6 +67,7 @@ describe('DEFAULT_WORKSPACE', () => {
       perimeter: null,
       mode: 'perimeter',
       direction: null,
+      savedSelections: [],
       units: 'aviation',
       theme: 'system',
       autoRefreshMs: DEFAULT_SETTINGS.autoRefreshMs,
@@ -97,6 +99,7 @@ describe('parseWorkspace', () => {
       perimeter: { lamin: 51, lamax: 52, lomin: -1, lomax: 1 },
       mode: 'perimeter',
       direction: null,
+      savedSelections: [],
       units: 'metric',
       theme: 'dark',
       autoRefreshMs: 60_000,
@@ -136,6 +139,42 @@ describe('parseWorkspace', () => {
       angleDeg: 180,
       visibilityKm: 500,
     });
+  });
+
+  it('parses saved selections and drops invalid or duplicate entries', () => {
+    const perimeter = {
+      id: 'perimeter-1',
+      name: 'Home',
+      kind: 'perimeter' as const,
+      perimeter: { lamin: 50, lomin: -1, lamax: 51, lomax: 0 },
+      createdAt: 1_000,
+      updatedAt: 2_000,
+    };
+    const direction = {
+      id: 'view-1',
+      name: 'North',
+      kind: 'direction' as const,
+      direction: {
+        origin: { latitude: 51.5, longitude: -0.1 },
+        bearingDeg: 0,
+        angleDeg: 60,
+        visibilityKm: 50,
+      },
+      createdAt: 3_000,
+      updatedAt: 4_000,
+    };
+
+    const parsed = parseWorkspace({
+      savedSelections: [
+        perimeter,
+        { ...perimeter, id: 'broken', perimeter: null },
+        direction,
+        { ...perimeter, name: 'Duplicate ID' },
+        { id: 'no-kind', name: 'Missing kind', createdAt: 1, updatedAt: 1 },
+      ],
+    });
+
+    expect(parsed.savedSelections).toEqual([perimeter, direction]);
   });
 
   it('clears an invalid direction but keeps View mode', () => {
@@ -182,10 +221,26 @@ describe('parseWorkspaceJson', () => {
       'null',
       '[]',
       '42',
-      JSON.stringify({ version: 2, units: 'metric' }),
+      JSON.stringify({ version: 3, units: 'metric' }),
     ]) {
       expect(parseWorkspaceJson(raw)).toEqual(DEFAULT_WORKSPACE);
     }
+  });
+
+  it('accepts the v1 envelope and adds an empty saved library', () => {
+    expect(
+      parseWorkspaceJson(
+        JSON.stringify({
+          version: 1,
+          units: 'metric',
+          perimeter: { lamin: 50, lamax: 51, lomin: -1, lomax: 0 },
+        }),
+      ),
+    ).toEqual({
+      ...DEFAULT_WORKSPACE,
+      perimeter: { lamin: 50, lamax: 51, lomin: -1, lomax: 0 },
+      units: 'metric',
+    });
   });
 
   it('parses a versioned stored workspace', () => {
@@ -221,6 +276,44 @@ describe('migration', () => {
     expect(migrateLegacySettings('{bad')).toEqual(DEFAULT_WORKSPACE);
   });
 
+  it('migrates a v1 workspace without losing the active selection', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      LEGACY_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        perimeter: { lamin: 50, lamax: 51, lomin: -1, lomax: 0 },
+        direction: {
+          origin: { latitude: 51.5, longitude: -0.1 },
+          bearingDeg: 90,
+          angleDeg: 60,
+          visibilityKm: 100,
+        },
+        mode: 'direction',
+        units: 'metric',
+        theme: 'dark',
+        autoRefreshMs: 60_000,
+        providerId: 'opensky',
+      }),
+    );
+
+    expect(loadWorkspace(storage)).toEqual({
+      ...DEFAULT_WORKSPACE,
+      perimeter: { lamin: 50, lomin: -1, lamax: 51, lomax: 0 },
+      direction: {
+        origin: { latitude: 51.5, longitude: -0.1 },
+        bearingDeg: 90,
+        angleDeg: 60,
+        visibilityKm: 100,
+      },
+      mode: 'direction',
+      units: 'metric',
+      theme: 'dark',
+      autoRefreshMs: 60_000,
+      providerId: 'opensky',
+    });
+  });
+
   it('prefers the workspace key and falls back to legacy', () => {
     const storage = new MemoryStorage();
     storage.setItem(
@@ -230,10 +323,16 @@ describe('migration', () => {
     expect(loadWorkspace(storage).autoRefreshMs).toBe(60_000);
 
     storage.setItem(
-      WORKSPACE_STORAGE_KEY,
+      LEGACY_WORKSPACE_STORAGE_KEY,
       JSON.stringify({ version: 1, autoRefreshMs: 120_000 }),
     );
     expect(loadWorkspace(storage).autoRefreshMs).toBe(120_000);
+
+    storage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({ version: WORKSPACE_VERSION, autoRefreshMs: 180_000 }),
+    );
+    expect(loadWorkspace(storage).autoRefreshMs).toBe(180_000);
   });
 });
 
@@ -253,7 +352,7 @@ describe('saveWorkspace / loadWorkspace', () => {
     ).toBe(true);
 
     expect(JSON.parse(storage.getItem(WORKSPACE_STORAGE_KEY)!)).toEqual({
-      version: 1,
+      version: WORKSPACE_VERSION,
       ...DEFAULT_WORKSPACE,
       perimeter: { lamin: 51, lamax: 52, lomin: -1, lomax: 1 },
       units: 'metric',
@@ -272,6 +371,16 @@ describe('saveWorkspace / loadWorkspace', () => {
         visibilityKm: 100,
       },
       mode: 'direction' as const,
+      savedSelections: [
+        {
+          id: 'saved-1',
+          name: 'Home box',
+          kind: 'perimeter' as const,
+          perimeter: { lamin: 50, lomin: -1, lamax: 51, lomax: 0 },
+          createdAt: 1_000,
+          updatedAt: 2_000,
+        },
+      ],
       units: 'metric' as const,
       theme: 'dark' as const,
       providerId: 'opensky' as const,

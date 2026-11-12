@@ -6,6 +6,7 @@ import { SETTINGS_STORAGE_KEY } from '../settings';
 import {
   DEFAULT_WORKSPACE,
   WORKSPACE_STORAGE_KEY,
+  WORKSPACE_VERSION,
 } from '../workspace';
 import { useWorkspace } from './useWorkspace';
 
@@ -47,7 +48,7 @@ describe('useWorkspace', () => {
     });
     // The first read establishes the new versioned store.
     expect(stored()).toEqual({
-      version: 1,
+      version: WORKSPACE_VERSION,
       ...DEFAULT_WORKSPACE,
       autoRefreshMs: 60_000,
     });
@@ -62,10 +63,44 @@ describe('useWorkspace', () => {
 
     expect(result.current.workspace.autoRefreshMs).toBe(60_000);
     expect(stored()).toEqual({
-      version: 1,
+      version: WORKSPACE_VERSION,
       ...DEFAULT_WORKSPACE,
       autoRefreshMs: 60_000,
     });
+  });
+
+  it('persists saved selections', () => {
+    const { result } = renderHook(() => useWorkspace());
+    const saved = [
+      {
+        id: 'perimeter-1',
+        name: 'Home',
+        kind: 'perimeter' as const,
+        perimeter: { lamin: 50, lomin: -1, lamax: 51, lomax: 0 },
+        createdAt: 1_000,
+        updatedAt: 2_000,
+      },
+      {
+        id: 'view-1',
+        name: 'Look east',
+        kind: 'direction' as const,
+        direction: {
+          origin: { latitude: 51.5, longitude: -0.1 },
+          bearingDeg: 90,
+          angleDeg: 60,
+          visibilityKm: 100,
+        },
+        createdAt: 3_000,
+        updatedAt: 4_000,
+      },
+    ];
+
+    act(() => {
+      result.current.setSavedSelections(saved);
+    });
+
+    expect(result.current.workspace.savedSelections).toEqual(saved);
+    expect(stored().savedSelections).toEqual(saved);
   });
 
   it('persists a perimeter and uses the latest state for rapid updates', () => {
@@ -143,7 +178,7 @@ describe('useWorkspace', () => {
     localStorage.setItem(
       WORKSPACE_STORAGE_KEY,
       JSON.stringify({
-        version: 1,
+        version: WORKSPACE_VERSION,
         units: 'metric',
         theme: 'dark',
         autoRefreshMs: 120_000,
@@ -156,7 +191,10 @@ describe('useWorkspace', () => {
     });
 
     expect(result.current.workspace).toEqual(DEFAULT_WORKSPACE);
-    expect(stored()).toEqual({ version: 1, ...DEFAULT_WORKSPACE });
+    expect(stored()).toEqual({
+      version: WORKSPACE_VERSION,
+      ...DEFAULT_WORKSPACE,
+    });
   });
 
   it('adopts workspace changes from another tab', () => {
@@ -164,7 +202,7 @@ describe('useWorkspace', () => {
 
     dispatchStorage(
       JSON.stringify({
-        version: 1,
+        version: WORKSPACE_VERSION,
         units: 'metric',
         theme: 'light',
         autoRefreshMs: 60_000,
@@ -174,6 +212,40 @@ describe('useWorkspace', () => {
     expect(result.current.workspace.units).toBe('metric');
     expect(result.current.workspace.theme).toBe('light');
     expect(result.current.workspace.autoRefreshMs).toBe(60_000);
+  });
+
+  it('adopts saved-library changes and skips invalid entries from another tab', () => {
+    const { result } = renderHook(() => useWorkspace());
+    const valid = {
+      id: 'view-1',
+      name: 'Look east',
+      kind: 'direction',
+      direction: {
+        origin: { latitude: 51.5, longitude: -0.1 },
+        bearingDeg: 90,
+        angleDeg: 60,
+        visibilityKm: 100,
+      },
+      createdAt: 1_000,
+      updatedAt: 2_000,
+    };
+
+    dispatchStorage(
+      JSON.stringify({
+        version: WORKSPACE_VERSION,
+        mode: 'direction',
+        direction: valid.direction,
+        savedSelections: [
+          valid,
+          { id: 'broken', name: 'Broken', kind: 'perimeter', perimeter: null },
+        ],
+        units: 'metric',
+      }),
+    );
+
+    expect(result.current.workspace.savedSelections).toEqual([valid]);
+    expect(result.current.workspace.mode).toBe('direction');
+    expect(result.current.workspace.units).toBe('metric');
   });
 
   it('resets when another tab removes or corrupts the workspace', () => {
@@ -211,9 +283,21 @@ describe('useWorkspace', () => {
 
     act(() => {
       result.current.setUnits('metric');
+      result.current.setSavedSelections([
+        {
+          id: 'p1',
+          name: 'Home',
+          kind: 'perimeter',
+          perimeter: { lamin: 50, lomin: -1, lamax: 51, lomax: 0 },
+          createdAt: 1_000,
+          updatedAt: 2_000,
+        },
+      ]);
     });
 
     expect(result.current.workspace.units).toBe('metric');
+    expect(result.current.workspace.savedSelections).toHaveLength(1);
+    expect(result.current.workspace.savedSelections[0].name).toBe('Home');
     expect(localStorage.getItem(WORKSPACE_STORAGE_KEY)).toBeNull();
   });
 });
