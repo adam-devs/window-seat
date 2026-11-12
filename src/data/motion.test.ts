@@ -5,6 +5,9 @@ import {
   createAircraftMotionTracker,
   easeOutCubic,
   interpolateGeo,
+  interpolateHeading,
+  normalizeHeading,
+  shortestHeadingDelta,
 } from './motion';
 
 function aircraft(overrides: Partial<Aircraft> = {}): Aircraft {
@@ -58,6 +61,22 @@ describe('interpolateGeo', () => {
         0.5,
       ),
     ).toEqual({ latitude: 0, longitude: 180 });
+  });
+});
+
+describe('heading interpolation', () => {
+  it('normalizes headings and takes the shortest rotation', () => {
+    expect(normalizeHeading(-10)).toBe(350);
+    expect(normalizeHeading(370)).toBe(10);
+    expect(shortestHeadingDelta(350, 10)).toBe(20);
+    expect(shortestHeadingDelta(10, 350)).toBe(-20);
+    expect(shortestHeadingDelta(90, 180)).toBe(90);
+  });
+
+  it('interpolates across north without spinning the long way', () => {
+    expect(interpolateHeading(350, 10, 0.5)).toBeCloseTo(0, 6);
+    expect(interpolateHeading(10, 350, 0.5)).toBeCloseTo(0, 6);
+    expect(interpolateHeading(90, 180, 0.5)).toBeCloseTo(135, 6);
   });
 });
 
@@ -127,6 +146,24 @@ describe('createAircraftMotionTracker', () => {
   it('returns null for unknown aircraft', () => {
     const tracker = createAircraftMotionTracker();
     expect(tracker.positionAt('missing', 0)).toBeNull();
+    expect(tracker.headingAt('missing', 0)).toBeNull();
+  });
+
+  it('eases heading toward a fresh track and holds unknown headings', () => {
+    const tracker = createAircraftMotionTracker();
+    tracker.sync([aircraft({ true_track: 350 })], 0);
+    expect(tracker.headingAt('abc123', 0)).toBe(350);
+
+    tracker.sync([aircraft({ true_track: 10 })], 1_000);
+    expect(tracker.headingAt('abc123', 1_000)).toBe(350);
+    expect(tracker.headingAt('abc123', 1_350)).toBeCloseTo(7.5, 6);
+    expect(tracker.headingAt('abc123', 1_000 + DEFAULT_CORRECTION_MS)).toBe(
+      10,
+    );
+
+    tracker.sync([aircraft({ true_track: null })], 2_000);
+    expect(tracker.headingAt('abc123', 2_000)).toBe(10);
+    expect(tracker.headingAt('abc123', 5_000)).toBe(10);
   });
 
   it('applies new options without losing state', () => {

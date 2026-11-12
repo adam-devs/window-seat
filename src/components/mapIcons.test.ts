@@ -2,6 +2,8 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  PLANE_ICON_PATH,
+  PLANE_ICON_SIZE,
   clearPlaneIconCache,
   getPlaneIcon,
   headingBucket,
@@ -56,6 +58,17 @@ describe('getPlaneIcon', () => {
     expect(normal.options.html).toContain('rotate(90deg)');
     expect(normal.options.html).toContain('#3b82f6');
     expect(selected.options.html).toContain('#f59e0b');
+  });
+
+  it('uses a north-up SVG silhouette rather than an emoji', () => {
+    const icon = getPlaneIcon(0, false);
+
+    expect(icon.options.html).toContain('<svg');
+    expect(icon.options.html).not.toContain('✈');
+    expect(icon.options.html).toContain('currentColor');
+    expect(PLANE_ICON_PATH.startsWith('M12 2')).toBe(true);
+    expect(PLANE_ICON_SIZE).toBe(28);
+    expect(icon.options.iconAnchor).toEqual([14, 14]);
   });
 
   it('rebuilds icons after an explicit cache clear', () => {

@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 298 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 321 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -269,7 +269,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 298 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 321 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -630,9 +630,16 @@ explanations.
 
 ### 7.2 Smoothness
 
-**Implemented in M2.3:** dead-reckoned marker motion with a 30 s/cadence cap,
-eased snapshot correction, and reduced-motion fallback. Trails and altitude
-styling remain.
+**Implemented in M2.3–M2.5:** dead-reckoned marker motion with a 30 s/cadence
+cap, eased snapshot correction, bounded observed trails with a distinct
+projected segment, smooth rotation, altitude colours, selection emphasis, stale
+dimming, and reduced-motion fallback. Decluttering remains.
+
+**Measured 2026-11-12 (`npm run perf:check`):** 300 synthetic aircraft in
+headless Chrome — 56.3 fps desktop / 56.9 fps mobile, max marker jump under
+3 px, heap growth under 12 MB, and bounded DOM/trail counts. 50–100 aircraft hold
+60 fps; the strict 60 fps target is not fully reached at 300 in headless
+software rendering.
 
 - 60 fps animation target on desktop; stable 30 fps or better on mid-range mobile.
 - Position correction after a new snapshot completes within about 1 s and never
@@ -676,8 +683,9 @@ area changes.
 
 - TypeScript strict mode. ✅
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
-  🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, and
-  motion/correction tests are in place (298 tests); trails arrive with M2.4.
+  🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
+  trail, visual-state, and performance-harness coverage are in place (321
+  tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
 
@@ -696,8 +704,9 @@ area changes.
 | Auto-fit map | ⛔ | F2.5 | P1 |
 | Directional View mode | ⛔ | M3.5 | P2 |
 | Smooth marker motion | ⛔ | F3.3 | P0 |
-| Aircraft trails | ⛔ | F3.4 | P1 |
-| Altitude styling / decluttering | ⛔ | F3.2 / F3.6 | P1 |
+| Aircraft trails | ✅ observed 120 s + projected segment | F3.4 | P1 |
+| Altitude styling / marker legibility | ✅ 28 px north-up SVG + halo | F3.2 | P1 |
+| Decluttering / clustering | ⛔ | F3.6 | P1 |
 | Follow selected aircraft | ⛔ | F3.5 | P2 |
 | Consistent ground traffic | 🟡 | F3.7 | P1 |
 | Sort / filter / search | ⛔ | F4.1–F4.3 | P1 |
@@ -715,7 +724,7 @@ area changes.
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | 🟡 labels/focus started | F9 | P2 |
-| Tests / lint / CI | 🟡 298 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 321 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -738,7 +747,7 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 298 tests and production build added; favicon and lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 321 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
 
