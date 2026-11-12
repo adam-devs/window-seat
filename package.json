@@ -1,5 +1,5 @@
 {
-  "name": "skywatch",
+  "name": "window-seat",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "perf:check": "node scripts/perf-check.mjs"
+    "perf:check": "node scripts/perf-check.mjs",
+    "view:check": "node scripts/view-check.mjs",
+    "saved:check": "node scripts/saved-check.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.8",

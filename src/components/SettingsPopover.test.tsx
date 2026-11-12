@@ -5,6 +5,22 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { SettingsPopover } from './SettingsPopover';
 import type { BudgetStatus } from '../data/budget';
 import type { Cadence } from '../data/policy';
+import type { DirectionalSelection } from '../data/directionalView';
+import type { SelectionMode } from '../types';
+
+const view: DirectionalSelection = {
+  origin: { latitude: 51.5, longitude: -0.1 },
+  bearingDeg: 90,
+  angleDeg: 60,
+  visibilityKm: 100,
+};
+
+const crossingView: DirectionalSelection = {
+  origin: { latitude: 0, longitude: 179.9 },
+  bearingDeg: 90,
+  angleDeg: 60,
+  visibilityKm: 100,
+};
 
 const cadence: Cadence = {
   intervalMs: 30_000,
@@ -46,31 +62,41 @@ const budget: BudgetStatus = {
 
 function renderPopover(overrides: Partial<{
   autoRefreshMs: number;
+  units: 'aviation' | 'metric';
   cadence: Cadence | null;
   budget: BudgetStatus;
+  mode: SelectionMode;
+  direction: DirectionalSelection | null;
   onChange: (ms: number) => void;
+  onUnitsChange: (units: 'aviation' | 'metric') => void;
+  onVisibilityChange: (km: number) => void;
   onReset: () => void;
 }> = {}) {
   const onChange = overrides.onChange ?? vi.fn();
+  const onUnitsChange = overrides.onUnitsChange ?? vi.fn();
+  const onVisibilityChange = overrides.onVisibilityChange ?? vi.fn();
   const onReset = overrides.onReset ?? vi.fn();
 
   render(
     <SettingsPopover
       autoRefreshMs={overrides.autoRefreshMs ?? 30_000}
+      units={overrides.units ?? 'aviation'}
+      mode={overrides.mode ?? 'perimeter'}
+      direction={overrides.direction ?? null}
       cadence={overrides.cadence === undefined ? cadence : overrides.cadence}
       budget={overrides.budget ?? budget}
       onChange={onChange}
+      onUnitsChange={onUnitsChange}
+      onVisibilityChange={onVisibilityChange}
       onReset={onReset}
     />,
   );
 
-  return { onChange, onReset };
+  return { onChange, onUnitsChange, onVisibilityChange, onReset };
 }
 
 function openPopover(): HTMLElement {
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Refresh settings' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   return screen.getByRole('dialog');
 }
 
@@ -84,7 +110,7 @@ describe('SettingsPopover', () => {
     const dialog = openPopover();
 
     expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
-    expect(screen.getByText('Refresh settings')).toBeTruthy();
+    expect(screen.getByText('Display settings')).toBeTruthy();
     expect(screen.getByRole('radio', { name: /15 s/ })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /1 min/ })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /2 min/ })).toBeTruthy();
@@ -114,6 +140,19 @@ describe('SettingsPopover', () => {
     fireEvent.click(screen.getByRole('radio', { name: /1 min/ }));
 
     expect(onChange).toHaveBeenCalledWith(60_000);
+  });
+
+  it('changes the display units', () => {
+    const { onUnitsChange } = renderPopover({ units: 'aviation' });
+    openPopover();
+
+    const metric = screen.getByRole('radio', {
+      name: /Metric/,
+    }) as HTMLInputElement;
+    expect(metric.checked).toBe(false);
+    fireEvent.click(metric);
+
+    expect(onUnitsChange).toHaveBeenCalledWith('metric');
   });
 
   it('resets to the default interval', () => {
@@ -176,7 +215,7 @@ describe('SettingsPopover', () => {
   it('closes on Escape and restores focus to the trigger', () => {
     renderPopover();
     openPopover();
-    const trigger = screen.getByRole('button', { name: 'Refresh settings' });
+    const trigger = screen.getByRole('button', { name: 'Settings' });
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
@@ -200,9 +239,76 @@ describe('SettingsPopover', () => {
     openPopover();
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Refresh settings' }),
+      screen.getByRole('button', { name: 'Settings' }),
     );
 
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('shows disabled View distances until a view is pinned', () => {
+    renderPopover({ mode: 'direction' });
+    openPopover();
+
+    for (const km of [25, 50, 100, 200]) {
+      const radio = screen.getByRole('radio', {
+        name: `${km} km`,
+      }) as HTMLInputElement;
+      expect(radio.disabled).toBe(true);
+    }
+    expect(
+      (screen.getByRole('radio', { name: '100 km' }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      screen.getByText('Pin a view on the map to set its distance.'),
+    ).toBeTruthy();
+  });
+
+  it('does not show View distance in Perimeter mode', () => {
+    renderPopover({ mode: 'perimeter' });
+    openPopover();
+
+    expect(screen.queryByText('View distance')).toBeNull();
+    expect(screen.queryByRole('radio', { name: '50 km' })).toBeNull();
+  });
+
+  it('changes the View distance', () => {
+    const { onVisibilityChange } = renderPopover({
+      mode: 'direction',
+      direction: view,
+    });
+    openPopover();
+
+    fireEvent.click(screen.getByRole('radio', { name: '50 km' }));
+
+    expect(onVisibilityChange).toHaveBeenCalledWith(50);
+  });
+
+  it('shows the effective area cost and warns about a large view', () => {
+    renderPopover({ mode: 'direction', direction: crossingView });
+    openPopover();
+
+    const area = document.querySelector('.settings-view-area');
+    expect(area?.textContent).toContain('View area');
+    expect(area?.textContent).toContain('sq°');
+    expect(area?.textContent).toContain('credits per request');
+    expect(
+      document.querySelector('.settings-view-warning')?.textContent,
+    ).toContain('Large view');
+  });
+
+  it('disables distances beyond the normal provider limit', () => {
+    renderPopover({ mode: 'direction', direction: crossingView });
+    openPopover();
+
+    expect(
+      (screen.getByRole('radio', { name: /200 km/ }) as HTMLInputElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole('radio', { name: /25 km/ }) as HTMLInputElement)
+        .disabled,
+    ).toBe(false);
+    expect(screen.getByText('Too large')).toBeTruthy();
   });
 });

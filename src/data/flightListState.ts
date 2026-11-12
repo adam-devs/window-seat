@@ -1,3 +1,4 @@
+import type { SelectionMode } from '../types';
 import type { FlightStatus } from './flightStatus';
 
 /**
@@ -13,6 +14,7 @@ export type FlightListStateKind =
   | 'loading'
   | 'waiting'
   | 'unavailable'
+  | 'filtered'
   | 'empty';
 
 export interface FlightListState {
@@ -25,16 +27,24 @@ export interface FlightListStateInput {
   status: FlightStatus;
   /** Number of rows that would actually be rendered (usually airborne). */
   visibleCount: number;
+  /** True when a search or non-default status filter can hide all rows. */
+  filtersActive?: boolean;
+  /** Selects area vs direction wording. Defaults to perimeter. */
+  mode?: SelectionMode;
 }
 
 /** Returns the empty-state copy, or null when rows are on screen. */
 export function deriveFlightListState(
   input: FlightListStateInput,
 ): FlightListState | null {
+  const isView = input.mode === 'direction';
+
   if (!input.hasArea) {
     return {
       kind: 'no-area',
-      message: 'Draw a perimeter on the map to begin tracking.',
+      message: isView
+        ? 'Pin a view on the map to begin tracking.'
+        : 'Draw a perimeter on the map to begin tracking.',
     };
   }
 
@@ -49,14 +59,24 @@ export function deriveFlightListState(
     case 'rate-limited':
       return {
         kind: 'unavailable',
-        message: 'Couldn’t load aircraft for this area. Retrying automatically.',
+        message: `Couldn’t load aircraft for this ${
+          isView ? 'view' : 'area'
+        }. Retrying automatically.`,
       };
     case 'ready':
     case 'refreshing':
     case 'stale':
+      if (input.filtersActive) {
+        return {
+          kind: 'filtered',
+          message: 'No aircraft match the current filters.',
+        };
+      }
       return {
         kind: 'empty',
-        message: 'No airborne aircraft in this area right now.',
+        message: isView
+          ? 'No aircraft in this direction right now.'
+          : 'No airborne aircraft in this area right now.',
       };
   }
 }

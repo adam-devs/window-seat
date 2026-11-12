@@ -3,13 +3,15 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Polygon,
   Polyline,
   Popup,
   Rectangle,
+  useMap,
   useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
-import type { BoundingBox } from '../types';
+import type { BoundingBox, SelectionMode } from '../types';
 import type { Aircraft } from '../data/types';
 import {
   createAircraftMotionTracker,
@@ -19,13 +21,21 @@ import {
   createAircraftTrailStore,
   type AircraftTrailStore,
 } from '../data/trails';
-import type { GeoPoint } from '../data/extrapolate';
+import { destinationPoint, type GeoPoint } from '../data/extrapolate';
+import { coneBoundingBox, conePolygon } from '../data/direction';
+import {
+  selectionFromPoints,
+  type DirectionalOrigin,
+  type DirectionalSelection,
+} from '../data/directionalView';
+import { bboxKey } from '../data/selectionArea';
 import { config } from '../config';
 import {
   applyMarkerVisual,
   markerVisual,
 } from './markerVisuals';
-import { msToKnots, mToFeet } from '../utils/opensky';
+import { formatAltitude, formatSpeed } from '../data/units';
+import type { UnitSystem } from '../workspace';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getPlaneIcon } from './mapIcons';
 
@@ -43,6 +53,7 @@ interface AircraftMarkerProps {
   selected: boolean;
   onSelectFlight: (icao24: string | null) => void;
   registerMarker: (icao24: string, marker: L.Marker | null) => void;
+  units: UnitSystem;
 }
 
 function aircraftMarkerPropsEqual(
@@ -55,6 +66,7 @@ function aircraftMarkerPropsEqual(
     previous.selected === next.selected &&
     previous.onSelectFlight === next.onSelectFlight &&
     previous.registerMarker === next.registerMarker &&
+    previous.units === next.units &&
     a.icao24 === b.icao24 &&
     a.callsign === b.callsign &&
     a.origin_country === b.origin_country &&
@@ -68,6 +80,7 @@ const AircraftMarker = memo(function AircraftMarker({
   selected,
   onSelectFlight,
   registerMarker,
+  units,
 }: AircraftMarkerProps) {
   // Leaflet position is driven imperatively by the motion loop. Keeping the
   // React `position` prop at its mount value prevents a snapshot from snapping
@@ -104,11 +117,11 @@ const AircraftMarker = memo(function AircraftMarker({
         {flight.origin_country ?? 'Unknown country'}
         <br />
         {flight.baro_altitude !== null
-          ? `Alt: ${mToFeet(flight.baro_altitude).toLocaleString()} ft`
+          ? `Alt: ${formatAltitude(flight.baro_altitude, units)}`
           : 'Altitude: unknown'}
         <br />
         {flight.velocity !== null
-          ? `Speed: ${msToKnots(flight.velocity)} kts`
+          ? `Speed: ${formatSpeed(flight.velocity, units)}`
           : ''}
       </Popup>
     </Marker>
@@ -130,6 +143,25 @@ const PROJECTED_TRAIL_OPTIONS: L.PolylineOptions = {
   weight: 1.5,
   opacity: 0.55,
   dashArray: '4 6',
+  interactive: false,
+};
+
+const CONE_OPTIONS: L.PathOptions = {
+  className: 'view-cone',
+  color: '#f59e0b',
+  weight: 1.5,
+  opacity: 0.8,
+  fillColor: '#f59e0b',
+  fillOpacity: 0.12,
+  interactive: false,
+};
+
+const BEARING_LINE_OPTIONS: L.PolylineOptions = {
+  className: 'view-bearing-line',
+  color: '#f59e0b',
+  weight: 2,
+  opacity: 0.85,
+  dashArray: '6 4',
   interactive: false,
 };
 
@@ -166,6 +198,87 @@ const TrailLine = memo(function TrailLine({
   previous.register === next.register &&
   previous.options === next.options);
 
+// ---- Sub-component: fit the map to the active perimeter ----
+interface PerimeterFitterProps {
+  bbox: BoundingBox | null;
+  areaKey: string | null;
+  reducedMotion: boolean;
+  fitToken: number;
+}
+
+function PerimeterFitter({
+  bbox,
+  areaKey,
+  reducedMotion,
+  fitToken,
+}: PerimeterFitterProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!bbox) return;
+    const frame = requestAnimationFrame(() => {
+      map.fitBounds(
+        [
+          [bbox.lamin, bbox.lomin],
+          [bbox.lamax, bbox.lomax],
+        ],
+        {
+          padding: [32, 32],
+          maxZoom: 12,
+          animate: !reducedMotion,
+        },
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [map, areaKey, reducedMotion, fitToken]);
+
+  return null;
+}
+
+// ---- Sub-component: fit the map to the active View cone ----
+interface DirectionFitterProps {
+  direction: DirectionalSelection | null;
+  reducedMotion: boolean;
+  fitToken: number;
+}
+
+function DirectionFitter({
+  direction,
+  reducedMotion,
+  fitToken,
+}: DirectionFitterProps) {
+  const map = useMap();
+  const areaKey = direction
+    ? `${direction.origin.latitude}:${direction.origin.longitude}:${direction.bearingDeg}:${direction.angleDeg}:${direction.visibilityKm}`
+    : null;
+
+  useEffect(() => {
+    if (!direction) return;
+    const bbox = coneBoundingBox(
+      direction.origin,
+      direction.bearingDeg,
+      direction.angleDeg,
+      direction.visibilityKm,
+    );
+    const frame = requestAnimationFrame(() => {
+      map.fitBounds(
+        [
+          [bbox.lamin, bbox.lomin],
+          [bbox.lamax, bbox.lomax],
+        ],
+        {
+          padding: [32, 32],
+          maxZoom: 12,
+          animate: !reducedMotion,
+        },
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [map, areaKey, reducedMotion, fitToken]);
+
+  return null;
+}
+
 // ---- Sub-component: handles map clicks for perimeter drawing ----
 interface PerimeterDrawerProps {
   onBoundsSelected: (bbox: BoundingBox) => void;
@@ -199,24 +312,124 @@ function PerimeterDrawer({ onBoundsSelected }: PerimeterDrawerProps) {
   ) : null;
 }
 
+// ---- Sub-component: pin an origin, then aim the View cone ----
+const VIEW_ORIGIN_ICON = L.divIcon({
+  className: '',
+  html: '<div class="view-origin" aria-hidden="true"></div>',
+  iconAnchor: [8, 8],
+});
+
+interface DirectionPickerProps {
+  direction: DirectionalSelection | null;
+  pendingOrigin: DirectionalOrigin | null;
+  onPendingOriginChange: (origin: DirectionalOrigin | null) => void;
+  onDirectionChange: (direction: DirectionalSelection | null) => void;
+}
+
+function DirectionPicker({
+  direction,
+  pendingOrigin,
+  onPendingOriginChange,
+  onDirectionChange,
+}: DirectionPickerProps) {
+  // Keep the last cone shape so re-pinning preserves the angle/distance while
+  // the direction itself is temporarily cleared for the bearing step.
+  const lastOptions = useRef<
+    Pick<DirectionalSelection, 'angleDeg' | 'visibilityKm'> | null
+  >(null);
+  if (direction) {
+    lastOptions.current = {
+      angleDeg: direction.angleDeg,
+      visibilityKm: direction.visibilityKm,
+    };
+  }
+
+  useMapEvents({
+    click(event) {
+      const point: DirectionalOrigin = {
+        latitude: event.latlng.lat,
+        longitude: event.latlng.lng,
+      };
+
+      if (!pendingOrigin) {
+        if (direction) onDirectionChange(null);
+        onPendingOriginChange(point);
+        return;
+      }
+
+      const next = selectionFromPoints(
+        pendingOrigin,
+        point,
+        lastOptions.current ?? undefined,
+      );
+      if (!next) return;
+
+      onPendingOriginChange(null);
+      onDirectionChange(next);
+    },
+  });
+
+  const origin = pendingOrigin ?? direction?.origin ?? null;
+  if (!origin) return null;
+
+  return (
+    <Marker
+      position={[origin.latitude, origin.longitude]}
+      icon={VIEW_ORIGIN_ICON}
+      draggable
+      zIndexOffset={900}
+      eventHandlers={{
+        dragend(event) {
+          const latlng = (event.target as L.Marker).getLatLng();
+          // Moving the pin restarts the bearing step; the next click aims it.
+          if (direction) onDirectionChange(null);
+          onPendingOriginChange({
+            latitude: latlng.lat,
+            longitude: latlng.lng,
+          });
+        },
+      }}
+    />
+  );
+}
+
 // ---- Main FlightMap ----
 interface FlightMapProps {
   flights: Aircraft[];
+  /** Active provider query area; a change resets trail history. */
   bbox: BoundingBox | null;
+  /** Last perimeter; only drawn and fitted in Perimeter mode. */
+  perimeter: BoundingBox | null;
+  mode: SelectionMode;
+  direction: DirectionalSelection | null;
+  pendingDirectionOrigin: DirectionalOrigin | null;
+  onPendingDirectionOriginChange: (origin: DirectionalOrigin | null) => void;
+  onDirectionChange: (direction: DirectionalSelection | null) => void;
   onPerimeterSelected: (bbox: BoundingBox) => void;
   selectedFlight: string | null;
   onSelectFlight: (icao24: string | null) => void;
   /** Current user cadence; tightens the dead-reckoning cap. */
   refreshIntervalMs: number;
+  /** Increment to re-fit the map even when the selection is unchanged. */
+  fitToken: number;
+  units: UnitSystem;
 }
 
 export function FlightMap({
   flights,
   bbox,
+  perimeter,
+  mode,
+  direction,
+  pendingDirectionOrigin,
+  onPendingDirectionOriginChange,
+  onDirectionChange,
   onPerimeterSelected,
   selectedFlight,
   onSelectFlight,
   refreshIntervalMs,
+  fitToken,
+  units,
 }: FlightMapProps) {
   const reducedMotion = useReducedMotion();
   const mapRef = useRef<L.Map | null>(null);
@@ -266,9 +479,8 @@ export function FlightMap({
     [],
   );
 
-  const areaKey = bbox
-    ? `${bbox.lamin}:${bbox.lomin}:${bbox.lamax}:${bbox.lomax}`
-    : null;
+  const areaKey = bboxKey(bbox);
+  const perimeterKey = bboxKey(perimeter);
 
   useEffect(() => {
     // A new area starts a fresh history; stale lines are cleared before the
@@ -443,6 +655,28 @@ export function FlightMap({
     }
   }, [flights, reducedMotion, selectedFlight]);
 
+  const conePositions =
+    mode === 'direction' && direction
+      ? conePolygon(
+          direction.origin,
+          direction.bearingDeg,
+          direction.angleDeg,
+          direction.visibilityKm,
+          48,
+        ).map(
+          (point) =>
+            [point.latitude, point.longitude] as [number, number],
+        )
+      : null;
+  const bearingEnd =
+    mode === 'direction' && direction
+      ? destinationPoint(
+          direction.origin,
+          direction.bearingDeg,
+          direction.visibilityKm * 1_000,
+        )
+      : null;
+
   return (
     <MapContainer
       ref={mapRef}
@@ -455,15 +689,56 @@ export function FlightMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Draw the active perimeter */}
-      {bbox && (
+      {/* The perimeter is only the query shape in Perimeter mode. */}
+      {mode === 'perimeter' && perimeter && (
         <Rectangle
-          bounds={[[bbox.lamin, bbox.lomin], [bbox.lamax, bbox.lomax]]}
+          bounds={[
+            [perimeter.lamin, perimeter.lomin],
+            [perimeter.lamax, perimeter.lomax],
+          ]}
           pathOptions={{ color: '#3b82f6', fillOpacity: 0.05, weight: 1.5 }}
         />
       )}
 
-      <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
+      {/* Translucent cone and centre bearing line for the active View */}
+      {conePositions && bearingEnd && direction && (
+        <>
+          <Polygon positions={conePositions} pathOptions={CONE_OPTIONS} />
+          <Polyline
+            positions={[
+              [direction.origin.latitude, direction.origin.longitude],
+              [bearingEnd.latitude, bearingEnd.longitude],
+            ]}
+            pathOptions={BEARING_LINE_OPTIONS}
+          />
+        </>
+      )}
+
+      {mode === 'perimeter' ? (
+        <>
+          <PerimeterFitter
+            bbox={perimeter}
+            areaKey={perimeterKey}
+            reducedMotion={reducedMotion}
+            fitToken={fitToken}
+          />
+          <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
+        </>
+      ) : (
+        <>
+          <DirectionFitter
+            direction={direction}
+            reducedMotion={reducedMotion}
+            fitToken={fitToken}
+          />
+          <DirectionPicker
+            direction={direction}
+            pendingOrigin={pendingDirectionOrigin}
+            onPendingOriginChange={onPendingDirectionOriginChange}
+            onDirectionChange={onDirectionChange}
+          />
+        </>
+      )}
 
       {/* Observed trails and the dead-reckoned segment */}
       {flights.map((flight) => (
@@ -493,6 +768,7 @@ export function FlightMap({
           selected={flight.icao24 === selectedFlight}
           onSelectFlight={onSelectFlight}
           registerMarker={registerMarker}
+          units={units}
         />
       ))}
     </MapContainer>
