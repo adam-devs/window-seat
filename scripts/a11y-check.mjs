@@ -96,6 +96,31 @@ function contrastRatio(foreground, background) {
   return (light + 0.05) / (dark + 0.05);
 }
 
+const CONTRAST_SELECTORS = [
+  '.panel-header h2',
+  '.subtitle',
+  '.count',
+  '.row-callsign',
+  '.row-country',
+  '.mode-btn--active',
+  '.mode-btn:not(.mode-btn--active)',
+  '.detail-label',
+  '.detail-value',
+  '.fr24-link',
+];
+
+async function assertContrast(page) {
+  for (const selector of CONTRAST_SELECTORS) {
+    const result = await measureContrast(page, selector);
+    assert.ok(!result.missing, `${selector} should be present`);
+    const minimum = result.large ? 3 : 4.5;
+    assert.ok(
+      result.ratio >= minimum,
+      `${selector} contrast ${result.ratio.toFixed(2)} should be >= ${minimum}`,
+    );
+  }
+}
+
 async function measureContrast(page, selector) {
   return page.evaluate(
     ({ selector, contrastSource }) => {
@@ -262,33 +287,70 @@ async function runDesktop(browser) {
       'Escape should return focus to the trigger',
     );
 
-    // ---- WCAG AA text contrast ----
+    // ---- WCAG AA text contrast (light) ----
     await page.locator('.flight-row').first().click();
     await page.locator('.detail-card').waitFor();
-    const selectors = [
-      '.panel-header h2',
-      '.subtitle',
-      '.count',
-      '.row-callsign',
-      '.row-country',
-      '.mode-btn--active',
-      '.mode-btn:not(.mode-btn--active)',
-      '.detail-label',
-      '.detail-value',
-      '.fr24-link',
-    ];
-    for (const selector of selectors) {
-      const result = await measureContrast(page, selector);
-      assert.ok(!result.missing, `${selector} should be present`);
-      const minimum = result.large ? 3 : 4.5;
-      assert.ok(
-        result.ratio >= minimum,
-        `${selector} contrast ${result.ratio.toFixed(2)} should be >= ${minimum}`,
-      );
-    }
+    await assertContrast(page);
 
     assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
-    console.log('desktop keyboard + contrast: PASS');
+    console.log('desktop keyboard + light contrast: PASS');
+  } finally {
+    await context.close();
+  }
+}
+
+async function runDarkContrast(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    colorScheme: 'dark',
+  });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+  await routeFlights(page);
+  await page.addInitScript(
+    ({ key, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+    },
+    {
+      key: WORKSPACE_KEY,
+      value: {
+        version: 2,
+        perimeter,
+        mode: 'perimeter',
+        direction: null,
+        savedSelections: [],
+        units: 'aviation',
+        theme: 'system',
+        autoRefreshMs: 30_000,
+        providerId: null,
+      },
+    },
+  );
+
+  try {
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await page.waitForSelector('.leaflet-container');
+    await waitForFlights(page);
+    await page.locator('.flight-row').first().click();
+    await page.locator('.detail-card').waitFor();
+
+    assert.ok(
+      await page.locator('.leaflet-container').evaluate((element) =>
+        element.classList.contains('map-dark'),
+      ),
+      'the dark theme should mark the map for dark tiles',
+    );
+    assert.ok(
+      (await page.locator('.leaflet-tile').first().getAttribute('src')).includes(
+        'tile.openstreetmap.org',
+      ),
+      'the dark map should still use the OSM tile source',
+    );
+
+    await assertContrast(page);
+    assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
+    console.log('dark contrast + themed map: PASS');
   } finally {
     await context.close();
   }
@@ -386,6 +448,7 @@ async function main() {
 
   try {
     await runDesktop(browser);
+    await runDarkContrast(browser);
     await runMobile(browser);
     console.log('Mobile/accessibility verification: PASS');
   } finally {

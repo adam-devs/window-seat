@@ -90,6 +90,25 @@ The harness uses Google Chrome via Playwright:
 Keyboard use: focus the map and use the arrow keys to pan; press Enter to place
 a perimeter corner or pin/aim the View at the map centre; press Escape to cancel.
 
+## Visual/style check
+
+With the dev server running, regenerate the theme screenshots and verify the
+style tokens, map tile source, and cardinal marker headings:
+
+```bash
+npm run style:check
+```
+
+Outputs `docs/screenshots/{light,dark}-{live,empty,error,stale}.jpg`; the
+pre-M5 comparison set lives alongside it as `before-{state}.jpg`. It uses
+Google Chrome via Playwright:
+
+- `STYLE_BASE_URL` (default `http://localhost:5173/`)
+- `STYLE_CHANNEL` (default `chrome`)
+
+The design tokens, typography, component patterns, and map/marker decisions are
+documented in `docs/STYLE.md`.
+
 ## Notes on the OpenSky API
 
 - The app is intended to run **locally** via `npm run dev`.

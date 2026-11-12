@@ -10,6 +10,8 @@ import type { BoundingBox, SelectionMode } from '../types';
 import type { UnitSystem } from '../workspace';
 import { SavedAreasPopover } from './SavedAreasPopover';
 import { SettingsPopover } from './SettingsPopover';
+import { ConeIcon, RefreshIcon, TargetIcon } from './icons';
+import { buttonBase, compactButtonBase, cx } from './ui';
 
 interface ToolbarProps {
   onRefresh: () => void;
@@ -38,6 +40,11 @@ interface ToolbarProps {
 }
 
 const MODES: SelectionMode[] = ['perimeter', 'direction'];
+
+const MODE_ICONS = {
+  perimeter: TargetIcon,
+  direction: ConeIcon,
+} as const;
 
 export function Toolbar({
   onRefresh,
@@ -72,27 +79,48 @@ export function Toolbar({
   });
 
   return (
-    <div className="toolbar">
-      <div className="mode-switch" role="group" aria-label="Selection mode">
-        {MODES.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={`mode-btn${mode === option ? ' mode-btn--active' : ''}`}
-            aria-pressed={mode === option}
-            onClick={() => onModeChange(option)}
-          >
-            {SELECTION_MODE_LABELS[option]}
-          </button>
-        ))}
+    <div className="toolbar relative z-[1000] flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-4 py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.625rem,env(safe-area-inset-top))] shadow-hairline max-[700px]:gap-2 max-[700px]:px-3 max-[700px]:pl-[max(0.75rem,env(safe-area-inset-left))] max-[700px]:pr-[max(0.75rem,env(safe-area-inset-right))]">
+      <div
+        className="mode-switch inline-flex items-center gap-0.5 rounded-xl border border-border bg-surface-2 p-0.5"
+        role="group"
+        aria-label="Selection mode"
+      >
+        {MODES.map((option) => {
+          const Icon = MODE_ICONS[option];
+          const active = mode === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              className={cx(
+                'mode-btn inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface max-[700px]:min-h-9',
+                active
+                  ? 'mode-btn--active bg-accent-strong text-white shadow-sm'
+                  : 'text-muted hover:bg-surface hover:text-ink',
+              )}
+              aria-pressed={active}
+              onClick={() => onModeChange(option)}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {SELECTION_MODE_LABELS[option]}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="perimeter-instructions">
+      <div className="perimeter-instructions flex items-center gap-2.5 text-[13px] text-muted max-[700px]:order-10 max-[700px]:basis-full max-[700px]:justify-between max-[700px]:text-xs">
         <span aria-live="polite">{instruction}</span>
-        <span className="keyboard-hint" aria-hidden="true">
+        <span className="keyboard-hint border-l border-border pl-2.5 text-[11px] text-muted max-[700px]:hidden">
           Arrows pan · Enter selects
         </span>
-        <button type="button" className="clear-btn" onClick={onClear}>
+        <button
+          type="button"
+          className={cx(
+            'clear-btn min-h-8 border-border bg-surface-2 text-ink',
+            compactButtonBase,
+          )}
+          onClick={onClear}
+        >
           Clear
         </button>
       </div>
@@ -100,19 +128,23 @@ export function Toolbar({
       {/* Refresh */}
       <button
         type="button"
-        className="refresh-btn"
+        className={cx(
+          'refresh-btn min-h-8 max-[700px]:min-h-9 max-[700px]:w-9 max-[700px]:px-0',
+          buttonBase,
+        )}
         onClick={onRefresh}
         disabled={loading}
         aria-busy={loading}
         aria-label="Refresh"
       >
-        <span aria-hidden="true">{loading ? '⏳' : '🔄'}</span>
-        <span className="btn-label">Refresh</span>
+        <RefreshIcon
+          className={cx('h-4 w-4', loading && 'animate-spin')}
+        />
+        <span className="btn-label max-[700px]:hidden">Refresh</span>
       </button>
 
       <SavedAreasPopover
         selections={savedSelections}
-
         mode={mode}
         perimeter={perimeter}
         direction={direction}

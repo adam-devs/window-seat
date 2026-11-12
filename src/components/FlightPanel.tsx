@@ -16,6 +16,8 @@ import {
   formatVerticalRate,
 } from '../data/units';
 import type { UnitSystem } from '../workspace';
+import { CloseIcon, PlaneIcon, SearchIcon } from './icons';
+import { cx, focusRing, inputBase } from './ui';
 
 interface FlightPanelProps {
   flights: Aircraft[];
@@ -71,18 +73,31 @@ const FlightRow = memo(function FlightRow({
   return (
     <button
       type="button"
-      className={`flight-row ${selected ? 'active' : ''}`}
+      className={cx(
+        'flight-row group flex w-full items-start justify-between gap-3 border-b border-l-2 border-b-border px-4 py-3 text-left transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent max-[700px]:min-h-12 max-[700px]:py-3',
+        selected
+          ? 'active border-l-warning bg-warning-soft/50'
+          : 'border-l-transparent hover:bg-surface-2',
+      )}
       aria-pressed={selected}
       onClick={() => onSelectFlight(selected ? null : flight.icao24)}
     >
-      <span className="flight-row-main">
-        <span className="row-callsign">{flight.callsign ?? 'N/A'}</span>
-        <span className="row-country">{flight.origin_country ?? '—'}</span>
+      <span className="flight-row-main flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="row-callsign truncate font-mono text-sm font-semibold tracking-wide text-ink">
+          {flight.callsign ?? 'N/A'}
+        </span>
+        <span className="row-country truncate text-[11px] text-muted">
+          {flight.origin_country ?? '—'}
+        </span>
       </span>
-      <span className="flight-row-sub">
+      <span className="flight-row-sub flex shrink-0 flex-col items-end gap-0.5 font-mono text-[11px] tabular-nums text-muted">
         <span>{formatAltitude(flight.baro_altitude, units)}</span>
         <span>{formatSpeed(flight.velocity, units)}</span>
-        {flight.on_ground && <span className="row-ground">On ground</span>}
+        {flight.on_ground && (
+          <span className="row-ground rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-warning-ink">
+            On ground
+          </span>
+        )}
       </span>
     </button>
   );
@@ -182,42 +197,77 @@ export function FlightPanel({
   return (
     <aside
       id="nearby-aircraft"
-      className={`flight-panel${collapsed ? ' flight-panel--collapsed' : ''}`}
+      className={cx(
+        'flight-panel flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-border bg-surface max-[700px]:w-full max-[700px]:max-h-[50dvh] max-[700px]:rounded-t-2xl max-[700px]:border-l-0 max-[700px]:border-t max-[700px]:pb-[env(safe-area-inset-bottom)] max-[700px]:shadow-2xl',
+        collapsed &&
+          'flight-panel--collapsed max-[700px]:max-h-none',
+      )}
       aria-label="Nearby aircraft"
       tabIndex={-1}
     >
       {collapsible && (
-        <div className="sheet-handle" aria-hidden="true">
-          <span />
+        <div
+          className="sheet-handle hidden justify-center pt-2 max-[700px]:flex"
+          aria-hidden="true"
+        >
+          <span className="h-1 w-10 rounded-full bg-border-strong" />
         </div>
       )}
 
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <h2>WindowSeat</h2>
+      <div className="panel-header border-b border-border px-4 py-4 max-[700px]:px-4 max-[700px]:py-2.5">
+        <div className="panel-title-row flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-display text-xl font-semibold tracking-tight text-ink">
+            <PlaneIcon className="h-5 w-5 text-accent" />
+            WindowSeat
+          </h2>
           {collapsible && onToggleCollapsed && (
             <button
               type="button"
-              className="sheet-toggle"
+              className={cx(
+                'sheet-toggle ml-auto hidden items-center gap-1 rounded-full border border-border bg-surface-2 px-2.5 py-1.5 text-[11px] font-medium text-ink transition duration-200 hover:border-border-strong max-[700px]:inline-flex',
+                focusRing,
+              )}
               aria-expanded={!collapsed}
               aria-controls="flight-panel-body"
               aria-label={`${collapsed ? 'Show' : 'Hide'} aircraft list`}
               onClick={onToggleCollapsed}
             >
-              <span aria-hidden="true">{collapsed ? '▴' : '▾'}</span>
+              <span
+                aria-hidden="true"
+                className={cx(
+                  'transition-transform duration-200',
+                  collapsed && 'rotate-180',
+                )}
+              >
+                ▾
+              </span>
               {collapsed ? 'Show list' : 'Hide list'}
             </button>
           )}
         </div>
         <p
-          className="subtitle"
+          className={cx(
+            'subtitle mt-1 text-[11px] text-muted',
+            collapsed && 'max-[700px]:hidden',
+          )}
           title={header.exactTime ? `Updated at ${header.exactTime}` : undefined}
         >
           {header.text}
         </p>
-        {header.provider && <p className="provider">{header.provider}</p>}
-        {error && <p className="error-msg">{error}</p>}
-        <p className="count">{countLabel}</p>
+        {header.provider && (
+          <p
+            className={cx(
+              'provider mt-0.5 text-[10px] text-faint',
+              collapsed && 'max-[700px]:hidden',
+            )}
+          >
+            {header.provider}
+          </p>
+        )}
+        {error && (
+          <p className="error-msg mt-1 text-xs text-danger-ink">{error}</p>
+        )}
+        <p className="count mt-1.5 text-[13px] text-muted">{countLabel}</p>
         <p className="sr-only" role="status" aria-live="polite">
           {selectionAnnouncement}
         </p>
@@ -225,23 +275,33 @@ export function FlightPanel({
 
       <div
         id="flight-panel-body"
-        className="flight-panel-body"
+        className="flight-panel-body flex min-h-0 flex-1 flex-col overflow-hidden"
         hidden={collapsed}
       >
         {hasArea && (
-          <div className="flight-controls">
-            <input
-              className="flight-search"
-              type="search"
-              placeholder="Search callsign or ICAO24…"
-              aria-label="Search flights"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <div className="flight-control-row">
-              <label className="flight-control">
+          <div className="flight-controls grid gap-2 border-b border-border px-4 py-3">
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
+              <input
+                className={cx(
+                  'flight-search py-2 pl-8 text-[11px] max-[700px]:min-h-[38px]',
+                  inputBase,
+                )}
+                type="search"
+                placeholder="Search callsign or ICAO24…"
+                aria-label="Search flights"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <div className="flight-control-row flex gap-2">
+              <label className="flight-control flex flex-1 flex-col gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
                 <span>Sort</span>
                 <select
+                  className={cx(
+                    'w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-[11px] text-ink max-[700px]:min-h-[34px]',
+                    focusRing,
+                  )}
                   aria-label="Sort flights"
                   value={sort}
                   onChange={(event) =>
@@ -255,9 +315,13 @@ export function FlightPanel({
                   <option value="contact-desc">Last contact ↓</option>
                 </select>
               </label>
-              <label className="flight-control">
+              <label className="flight-control flex flex-1 flex-col gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
                 <span>Show</span>
                 <select
+                  className={cx(
+                    'w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-[11px] text-ink max-[700px]:min-h-[34px]',
+                    focusRing,
+                  )}
                   aria-label="Filter flights"
                   value={filter}
                   onChange={(event) =>
@@ -271,11 +335,18 @@ export function FlightPanel({
               </label>
             </div>
             {filtersActive && (
-              <div className="flight-view-summary">
+              <div className="flight-view-summary flex items-center justify-between gap-2 text-[11px] text-muted">
                 <span aria-live="polite">
                   {visibleFlights.length} of {flights.length} shown
                 </span>
-                <button type="button" onClick={clearFilters}>
+                <button
+                  type="button"
+                  className={cx(
+                    'rounded-md px-1.5 py-0.5 text-[11px] font-medium text-accent-ink transition hover:bg-accent-soft',
+                    focusRing,
+                  )}
+                  onClick={clearFilters}
+                >
                   Clear filters
                 </button>
               </div>
@@ -286,32 +357,46 @@ export function FlightPanel({
         {/* Detail card for selected flight */}
         {selected && (
           <div
-            className={`detail-card ${lostContact ? 'detail-card--last-known' : ''}`}
+            className={cx(
+              'detail-card relative mx-3 mt-3 overflow-hidden rounded-xl border border-border bg-surface-2 p-3 shadow-card',
+              lostContact && 'detail-card--last-known border-warning/60',
+            )}
             role="region"
             aria-label={`${selected.callsign ?? selected.icao24.toUpperCase()} details`}
           >
-            <div className="detail-header">
-              <div className="detail-title">
-                <span className="callsign">{selected.callsign ?? 'N/A'}</span>
+            <div className="detail-header flex items-start justify-between gap-2">
+              <div className="detail-title flex flex-wrap items-center gap-2">
+                <span className="callsign font-mono text-base font-semibold tracking-[0.12em] text-warning-ink">
+                  {selected.callsign ?? 'N/A'}
+                </span>
                 {lostContact && (
-                  <span className="last-known-badge">Last known</span>
+                  <span className="last-known-badge rounded-full border border-warning/50 bg-warning-soft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning-ink">
+                    Last known
+                  </span>
                 )}
               </div>
               <button
                 type="button"
-                className="close-btn"
+                className={cx(
+                  'close-btn -mr-1 -mt-1 rounded-md p-1 text-muted transition hover:bg-surface hover:text-ink',
+                  focusRing,
+                )}
                 aria-label="Close flight details"
                 onClick={() => onSelectFlight(null)}
               >
-                ✕
+                <CloseIcon className="h-4 w-4" />
               </button>
             </div>
             {lostContact && (
-              <p className="last-known-note">
+              <p className="last-known-note mt-1 text-[11px] text-warning-ink">
                 No longer in the latest snapshot.
               </p>
             )}
-            <div className="detail-grid">
+            <div
+              className="my-2 border-t border-dashed border-border"
+              aria-hidden="true"
+            />
+            <div className="detail-grid grid grid-cols-2 gap-x-3 gap-y-2">
               <DetailItem label="ICAO24" value={selected.icao24.toUpperCase()} />
               <DetailItem label="Country" value={selected.origin_country ?? '—'} />
               <DetailItem label="Altitude" value={formatAltitude(selected.baro_altitude, units)} />
@@ -325,7 +410,7 @@ export function FlightPanel({
               href={`https://www.flightradar24.com/${selected.callsign ?? selected.icao24}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="fr24-link"
+              className="fr24-link mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent-ink transition hover:underline"
             >
               View on FlightRadar24 ↗
             </a>
@@ -334,13 +419,17 @@ export function FlightPanel({
 
         {/* Flight list */}
         <div
-          className="flight-list"
+          className="flight-list scroll-thin flex-1 overflow-y-auto py-1"
           aria-busy={loading}
           aria-label="Flight results"
         >
           {listState && (
             <p
-              className={`empty-msg empty-msg--${listState.kind}`}
+              className={cx(
+                'empty-msg px-4 py-6 text-center text-[13px] text-muted',
+                `empty-msg--${listState.kind}`,
+                listState.kind === 'unavailable' && 'text-danger-ink',
+              )}
               role="status"
             >
               {listState.message}
@@ -363,9 +452,13 @@ export function FlightPanel({
 
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="detail-item">
-      <span className="detail-label">{label}</span>
-      <span className="detail-value">{value}</span>
+    <div className="detail-item flex min-w-0 flex-col gap-0.5">
+      <span className="detail-label text-[10px] uppercase tracking-[0.08em] text-muted">
+        {label}
+      </span>
+      <span className="detail-value truncate font-mono text-xs font-semibold tabular-nums text-ink">
+        {value}
+      </span>
     </div>
   );
 }

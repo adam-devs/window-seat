@@ -33,10 +33,15 @@ import { config } from '../config';
 import {
   applyMarkerVisual,
   markerVisual,
+  markerZoomScale,
 } from './markerVisuals';
 import { formatAltitude, formatSpeed } from '../data/units';
 import type { UnitSystem } from '../workspace';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import {
+  DARK_MODE_QUERY,
+  useMediaQuery,
+} from '../hooks/useMediaQuery';
 import { getPlaneIcon } from './mapIcons';
 
 // Fix Leaflet's default icon path issue with bundlers
@@ -163,6 +168,12 @@ const BEARING_LINE_OPTIONS: L.PolylineOptions = {
   opacity: 0.85,
   dashArray: '6 4',
   interactive: false,
+};
+
+const MAP_TILES = {
+  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 };
 
 interface TrailLineProps {
@@ -565,6 +576,7 @@ export function FlightMap({
   units,
 }: FlightMapProps) {
   const reducedMotion = useReducedMotion();
+  const prefersDark = useMediaQuery(DARK_MODE_QUERY);
   const mapRef = useRef<L.Map | null>(null);
   const markerRefs = useRef(new Map<string, L.Marker>());
   const glyphRefs = useRef(new Map<string, HTMLElement>());
@@ -657,7 +669,13 @@ export function FlightMap({
           latitude: flight.latitude,
           longitude: flight.longitude,
         });
-        applyVisual(flight, marker, flight.true_track, now);
+        applyVisual(
+          flight,
+          marker,
+          flight.true_track,
+          now,
+          markerZoomScale(mapRef.current?.getZoom() ?? 7),
+        );
       }
       return;
     }
@@ -697,6 +715,7 @@ export function FlightMap({
             marker,
             tracker.headingAt(icao24, frameNow),
             frameNow,
+            markerZoomScale(zoom),
           );
         }
       }
@@ -761,6 +780,7 @@ export function FlightMap({
       marker: L.Marker,
       heading: number | null,
       atMs: number,
+      zoomScale: number,
     ): void {
       let glyph = glyphRefs.current.get(flight.icao24);
       if (!glyph) {
@@ -784,7 +804,7 @@ export function FlightMap({
       if (visualKeys.current.get(flight.icao24) === key) return;
       visualKeys.current.set(flight.icao24, key);
 
-      applyMarkerVisual(glyph, heading, visual);
+      applyMarkerVisual(glyph, heading, visual, zoomScale);
     }
   }, [flights, reducedMotion, selectedFlight]);
 
@@ -813,6 +833,7 @@ export function FlightMap({
   return (
     <MapContainer
       ref={mapRef}
+      className={prefersDark ? 'map-dark' : undefined}
       center={[51.5, -0.1]}
       zoom={7}
       style={{ height: '100%', width: '100%' }}
@@ -824,8 +845,8 @@ export function FlightMap({
       />
 
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={MAP_TILES.attribution}
+        url={MAP_TILES.url}
       />
 
       {/* The perimeter is only the query shape in Perimeter mode. */}

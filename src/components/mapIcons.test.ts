@@ -67,8 +67,11 @@ describe('getPlaneIcon', () => {
     expect(icon.options.html).not.toContain('✈');
     expect(icon.options.html).toContain('currentColor');
     expect(PLANE_ICON_PATH.startsWith('M12 2')).toBe(true);
-    expect(PLANE_ICON_SIZE).toBe(28);
-    expect(icon.options.iconAnchor).toEqual([14, 14]);
+    expect(PLANE_ICON_SIZE).toBe(32);
+    expect(icon.options.iconAnchor).toEqual([16, 16]);
+
+    const selected = getPlaneIcon(0, true);
+    expect(selected.options.html).toContain('plane-glyph--selected');
   });
 
   it('rebuilds icons after an explicit cache clear', () => {

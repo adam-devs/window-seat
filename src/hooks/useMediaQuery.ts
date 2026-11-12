@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react';
 /** Breakpoint shared by the CSS layout and the mobile-only sheet behavior. */
 export const MOBILE_LAYOUT_QUERY = '(max-width: 700px)';
 
+/** Theme follows the OS; there is intentionally no manual toggle. */
+export const DARK_MODE_QUERY = '(prefers-color-scheme: dark)';
+
 type MediaQuery = {
   matches: boolean;
   addEventListener?: (type: 'change', listener: () => void) => void;

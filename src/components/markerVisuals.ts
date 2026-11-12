@@ -15,8 +15,8 @@ export const ALTITUDE_COLORS: Record<AltitudeBand, string> = {
 export const SELECTED_COLOR = '#f59e0b';
 
 const BASE_FILTER =
-  'drop-shadow(0 0 1.5px rgba(255,255,255,.95)) drop-shadow(0 1px 2px rgba(0,0,0,.9))';
-const SELECTED_FILTER = `${BASE_FILTER} drop-shadow(0 0 5px currentColor)`;
+  'drop-shadow(0 0 1.5px var(--marker-halo, rgba(255,255,255,.95))) drop-shadow(0 1px 2px var(--marker-shadow, rgba(0,0,0,.9)))';
+const SELECTED_FILTER = `${BASE_FILTER} drop-shadow(0 0 6px currentColor)`;
 
 export interface MarkerVisual {
   color: string;
@@ -58,11 +58,25 @@ export function markerVisual(
   return {
     color: selected ? SELECTED_COLOR : ALTITUDE_COLORS[band],
     scale: selected ? 1.3 : 1,
-    opacity: stale ? (selected ? 0.6 : 0.35) : 1,
+    opacity: stale ? (selected ? 0.7 : 0.5) : 1,
     stale,
     selected,
     band,
   };
+}
+
+/**
+ * Zoom-aware marker scale.
+ *
+ * Markers stay readable at city zoom without covering the map when zoomed out.
+ * The selected marker's own 1.3× scale is applied on top of this.
+ */
+export function markerZoomScale(zoom: number): number {
+  if (!Number.isFinite(zoom)) return 1;
+  if (zoom >= 12) return 1.15;
+  if (zoom >= 10) return 1.05;
+  if (zoom >= 8) return 1;
+  return 0.85;
 }
 
 /** Apply visual state to the cached glyph element without replacing marker DOM. */
@@ -70,11 +84,17 @@ export function applyMarkerVisual(
   glyph: HTMLElement,
   heading: number | null,
   visual: MarkerVisual,
+  zoomScale = 1,
 ): void {
   const rotation =
     heading !== null && Number.isFinite(heading) ? normalizeHeading(heading) : 0;
-  glyph.style.transform = `rotate(${rotation}deg) scale(${visual.scale})`;
+  const scale =
+    Math.round(
+      visual.scale * (Number.isFinite(zoomScale) ? zoomScale : 1) * 1000,
+    ) / 1000;
+  glyph.style.transform = `rotate(${rotation}deg) scale(${scale})`;
   glyph.style.color = visual.color;
   glyph.style.opacity = String(visual.opacity);
   glyph.style.filter = visual.selected ? SELECTED_FILTER : BASE_FILTER;
+  glyph.classList.toggle('plane-glyph--selected', visual.selected);
 }

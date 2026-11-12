@@ -8,6 +8,7 @@ import {
   altitudeBand,
   applyMarkerVisual,
   markerVisual,
+  markerZoomScale,
 } from './markerVisuals';
 
 function aircraft(overrides: Partial<Aircraft> = {}): Aircraft {
@@ -75,7 +76,7 @@ describe('markerVisual', () => {
     );
 
     expect(visual.stale).toBe(true);
-    expect(visual.opacity).toBe(0.35);
+    expect(visual.opacity).toBe(0.5);
   });
 
   it('keeps a selected aircraft orange and stronger when stale', () => {
@@ -88,7 +89,7 @@ describe('markerVisual', () => {
 
     expect(visual.color).toBe(SELECTED_COLOR);
     expect(visual.scale).toBe(1.3);
-    expect(visual.opacity).toBe(0.6);
+    expect(visual.opacity).toBe(0.7);
   });
 
   it('treats a missing contact timestamp as fresh', () => {
@@ -96,6 +97,16 @@ describe('markerVisual', () => {
       markerVisual(aircraft({ lastContactMs: 0 }), 100_000, false, 1)
         .stale,
     ).toBe(false);
+  });
+});
+
+describe('markerZoomScale', () => {
+  it('scales markers with map zoom', () => {
+    expect(markerZoomScale(6)).toBe(0.85);
+    expect(markerZoomScale(9)).toBe(1);
+    expect(markerZoomScale(11)).toBe(1.05);
+    expect(markerZoomScale(14)).toBe(1.15);
+    expect(markerZoomScale(Number.NaN)).toBe(1);
   });
 });
 
@@ -111,6 +122,16 @@ describe('applyMarkerVisual', () => {
     expect(glyph.style.opacity).toBe('1');
     expect(glyph.style.filter).toContain('drop-shadow');
     expect(glyph.style.filter).toContain('rgba(255,255,255');
+    expect(glyph.classList.contains('plane-glyph--selected')).toBe(true);
+  });
+
+  it('applies zoom-aware scaling on top of selection scale', () => {
+    const glyph = document.createElement('div');
+    const visual = markerVisual(aircraft(), 2_000, true, 60_000);
+
+    applyMarkerVisual(glyph, 90, visual, 1.15);
+
+    expect(glyph.style.transform).toBe('rotate(90deg) scale(1.495)');
   });
 
   it('rotates the north-up glyph through cardinal directions', () => {

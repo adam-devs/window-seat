@@ -27,6 +27,8 @@ import {
 import { unitsLabel } from '../data/units';
 import type { UnitSystem } from '../workspace';
 import { trapDialogFocus } from './dialogFocus';
+import { SettingsIcon } from './icons';
+import { buttonBase, cx, popoverBase } from './ui';
 
 interface SettingsPopoverProps {
   autoRefreshMs: number;
@@ -112,11 +114,14 @@ export function SettingsPopover({
   const viewArea = direction ? describeViewArea(direction) : null;
 
   return (
-    <div className="settings-wrap" ref={wrapRef}>
+    <div className="settings-wrap relative flex" ref={wrapRef}>
       <button
         ref={triggerRef}
         type="button"
-        className="icon-btn settings-trigger"
+        className={cx(
+          'icon-btn settings-trigger min-h-8 max-[700px]:min-h-9 max-[700px]:w-9 max-[700px]:px-0',
+          buttonBase,
+        )}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
@@ -124,29 +129,45 @@ export function SettingsPopover({
         title="Settings"
         onClick={() => setOpen((value) => !value)}
       >
-        <span aria-hidden="true">⚙</span>
-        <span className="btn-label">Settings</span>
+        <SettingsIcon className="h-4 w-4" />
+        <span className="btn-label max-[700px]:hidden">Settings</span>
       </button>
 
       {open && (
         <div
           ref={dialogRef}
           id={panelId}
-          className="settings-popover"
+          className={cx(
+            'settings-popover w-[320px] max-[700px]:w-auto',
+            popoverBase,
+          )}
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
         >
           <div className="settings-heading">
-            <h3 id={headingId}>Display settings</h3>
-            <p>Changes apply immediately and are remembered in this browser.</p>
+            <h3
+              id={headingId}
+              className="font-display text-lg font-semibold text-ink"
+            >
+              Display settings
+            </h3>
+            <p className="mt-1 text-[11px] text-muted">
+              Changes apply immediately and are remembered in this browser.
+            </p>
           </div>
 
-          <fieldset className="settings-group">
-            <legend>Automatic refresh</legend>
+          <fieldset className="settings-group mt-3 border-0">
+            <legend className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
+              Automatic refresh
+            </legend>
             {REFRESH_OPTIONS_MS.map((ms) => (
-              <label className="settings-option" key={ms}>
+              <label
+                className="settings-option flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink transition hover:bg-surface-2"
+                key={ms}
+              >
                 <input
+                  className="accent-accent-strong"
                   type="radio"
                   name="refresh-interval"
                   value={ms}
@@ -155,17 +176,25 @@ export function SettingsPopover({
                 />
                 <span>{formatInterval(ms)}</span>
                 {ms === DEFAULT_SETTINGS.autoRefreshMs && (
-                  <span className="settings-default">Default</span>
+                  <span className="settings-default ml-auto text-[10px] uppercase tracking-wide text-muted">
+                    Default
+                  </span>
                 )}
               </label>
             ))}
           </fieldset>
 
-          <fieldset className="settings-group">
-            <legend>Units</legend>
+          <fieldset className="settings-group mt-3 border-0">
+            <legend className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
+              Units
+            </legend>
             {(['aviation', 'metric'] as const).map((option) => (
-              <label className="settings-option" key={option}>
+              <label
+                className="settings-option flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink transition hover:bg-surface-2"
+                key={option}
+              >
                 <input
+                  className="accent-accent-strong"
                   type="radio"
                   name="units"
                   value={option}
@@ -178,10 +207,12 @@ export function SettingsPopover({
           </fieldset>
 
           {mode === 'direction' && (
-            <fieldset className="settings-group">
-              <legend>View distance</legend>
+            <fieldset className="settings-group mt-3 border-0">
+              <legend className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
+                View distance
+              </legend>
               {!direction && (
-                <p className="settings-note">
+                <p className="settings-note mb-1 text-[11px] text-muted">
                   Pin a view on the map to set its distance.
                 </p>
               )}
@@ -193,12 +224,15 @@ export function SettingsPopover({
                   !direction || (option?.exceedsLimit ?? false);
                 return (
                   <label
-                    className={`settings-option${
-                      disabled ? ' settings-option--disabled' : ''
-                    }`}
+                    className={cx(
+                      'settings-option flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink transition hover:bg-surface-2',
+                      disabled &&
+                        'settings-option--disabled cursor-default opacity-50 hover:bg-transparent',
+                    )}
                     key={km}
                   >
                     <input
+                      className="accent-accent-strong"
                       type="radio"
                       name="view-distance"
                       value={km}
@@ -208,19 +242,26 @@ export function SettingsPopover({
                     />
                     <span>{km} km</span>
                     {option?.exceedsLimit && (
-                      <span className="settings-option-note">Too large</span>
+                      <span className="settings-option-note ml-auto text-[10px] uppercase tracking-wide text-warning-ink">
+                        Too large
+                      </span>
                     )}
                   </label>
                 );
               })}
               {viewArea && (
                 <p
-                  className={`settings-view-area settings-view-area--${viewArea.level}`}
+                  className={cx(
+                    'settings-view-area mt-1 grid gap-0.5 border-t border-border pt-2 text-[11px] text-muted',
+                    `settings-view-area--${viewArea.level}`,
+                    viewArea.level === 'warn' && 'text-warning-ink',
+                    viewArea.level === 'over-limit' && 'text-danger-ink',
+                  )}
                   aria-live="polite"
                 >
                   <span>{viewArea.text}</span>
                   {viewArea.warning && (
-                    <span className="settings-view-warning">
+                    <span className="settings-view-warning font-semibold">
                       {viewArea.warning}
                     </span>
                   )}
@@ -230,31 +271,39 @@ export function SettingsPopover({
           )}
 
           <div
-            className={`settings-status ${paused ? 'settings-status--paused' : ''}`}
+            className={cx(
+              'settings-status mt-3 border-t border-border pt-2 text-xs text-muted',
+              paused && 'settings-status--paused text-warning-ink',
+            )}
             aria-live="polite"
           >
             {describeEffectiveCadence(cadence)}
           </div>
 
-          <div className="settings-budget">
+          <div className="settings-budget mt-2 grid gap-1 text-xs text-muted">
             <p>
               Credits today{' '}
-              <strong>
+              <strong className="font-semibold text-ink">
                 {credits(budget.spent)} / {credits(budget.dailyBudget)}
               </strong>
             </p>
             <p>
-              Remaining <strong>{credits(budget.remaining)}</strong>
+              Remaining{' '}
+              <strong className="font-semibold text-ink">
+                {credits(budget.remaining)}
+              </strong>
             </p>
             <p>
               Auto-pause at{' '}
-              <strong>{credits(autoPauseThreshold(budget))}</strong>
+              <strong className="font-semibold text-ink">
+                {credits(autoPauseThreshold(budget))}
+              </strong>
             </p>
           </div>
 
           <button
             type="button"
-            className="settings-reset"
+            className={cx('settings-reset mt-3 w-full', buttonBase)}
             onClick={onReset}
           >
             Reset to default

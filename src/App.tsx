@@ -313,7 +313,7 @@ export default function App() {
   }, [setAutoRefreshMs]);
 
   return (
-    <div className="app">
+    <div className="app flex h-dvh flex-col bg-bg text-ink">
       <a className="skip-link" href="#nearby-aircraft">
         Skip to aircraft list
       </a>
@@ -350,8 +350,8 @@ export default function App() {
         refreshing={loading}
       />
 
-      <div className="main">
-        <div className="map-container">
+      <div className="main flex min-h-0 flex-1 max-[700px]:flex-col">
+        <div className="map-container relative min-h-0 flex-1 max-[700px]:min-h-[180px]">
           <p id="map-keyboard-instructions" className="sr-only">
             Use the arrow keys to move the map. Press Enter to select the map
             centre. In Perimeter mode the first Enter places a corner and the

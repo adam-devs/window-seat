@@ -228,7 +228,7 @@ and styles, with no tests, linting, or deployment configuration.
 | Units toggle | ⛔ |
 | Mobile layout | 🟡 functional but cramped |
 | Accessibility | ✅ keyboard flow, focus, labels, live regions, AA contrast |
-| Tests / lint / CI | 🟡 477 tests ✅; lint/CI ⛔ |
+| Tests / lint / CI | 🟡 479 tests ✅; lint/CI ⛔ |
 
 ### 3.8 M1 as-built status (2026-11-12)
 
@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 477 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 479 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -277,7 +277,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 477 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 479 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -300,9 +300,28 @@ M4 makes the app usable on phones and without a mouse:
 | Screen readers | ✅ map instructions/description, selection and filter announcements, skip link, named landmarks; decorative emoji hidden |
 | Focus | ✅ both popovers trap Tab, restore focus on close, and keep Escape/outside-click dismissal |
 | Contrast | ✅ key text ≥4.5:1 (≥3:1 large/bold) on the dark theme; muted/accent tokens adjusted |
-| Decluttering | ✅ no clustering: direction-aware 28 px markers, stale dimming, raised selection; trails are the future lever if load grows |
-| Tests | ✅ 477 Vitest tests |
+| Decluttering | ✅ no clustering: direction-aware markers, stale dimming, raised selection; trails are the future lever if load grows |
+| Tests | ✅ 479 Vitest tests |
 | Browser checks | ✅ `npm run a11y:check` (keyboard, focus, mobile sheet/resize, contrast), plus `view:check` and `saved:check` |
+| Build | ✅ `npm run build` passes |
+
+### 3.11 M5 as-built status (2026-11-12)
+
+M5 applies the WindowSeat visual identity without changing behavior:
+
+| Area | M5 status |
+| --- | --- |
+| Tailwind | ✅ v3.4 + PostCSS/autoprefixer; semantic colour, font, shadow, radius, and motion tokens |
+| Theme | ✅ light by default following `prefers-color-scheme`; dark via the same tokens; no manual toggle; `color-scheme: light dark` |
+| Typography | ✅ Inter UI, Playfair Display titles/wordmark, JetBrains Mono telemetry with tabular numerals |
+| Shell/components | ✅ Retro toolbar pills, hairline borders, stone surfaces, boarding-pass detail card, focus rings, hover lift/scale |
+| Icons | ✅ stroke-1.5 SVG set replaces emoji; `public/plane.svg` favicon |
+| Map theme | ✅ light OSM; dark OSM tile pane filtered locally because CARTO now watermarks keyless requests; matching attribution |
+| Markers | ✅ 32 px north-up glyph, zoom-aware scale, theme-aware two-tone stroke/halo, selected ring, brighter stale treatment |
+| Docs | ✅ `docs/STYLE.md` records tokens, type scale, spacing, motion, components, map/marker decisions |
+| Tests | ✅ 479 Vitest tests |
+| Browser checks | ✅ `npm run a11y:check` (both themes), `npm run style:check` (8 screenshots + cardinal headings), `view:check`, `saved:check` |
+| Screenshots | ✅ after: `docs/screenshots/{light,dark}-{live,empty,error,stale}.jpg`; before: `before-{live,empty,error,stale}.jpg` |
 | Build | ✅ `npm run build` passes |
 
 ---
@@ -432,13 +451,12 @@ the map; selection remains coherent across a refresh.
 **Acceptance:** a 429 or transient failure leaves the last snapshot visible;
 recovery is automatic; no hard-coded credentials exist in source.
 
-### F6 — Settings and persistence (P1) — 🟡 refresh interval only
+### F6 — Settings and persistence (P1) — ✅ core settings
 
-- **F6.1 Units** — aviation or metric, default decided during implementation
-  (open question).
-- **F6.2 Refresh cadence** — options constrained by the active provider's limits.
-- **F6.3 Theme** — dark by default; optional light theme using the existing CSS
-  variable approach.
+- **F6.1 Units** — ✅ aviation or metric, persisted.
+- **F6.2 Refresh cadence** — ✅ options constrained by the active provider's limits.
+- **F6.3 Theme** — ✅ light by default following the OS; dark theme through the
+  same tokens. No manual toggle (M5).
 - **F6.4 Provider choice** — optionally expose provider selection when more than
   one is configured.
 - **F6.5 Storage schema** — versioned `localStorage` payload; safe fallback and
@@ -736,7 +754,7 @@ area changes.
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
   🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
   trail, visual-state, list controls, and performance-harness coverage are in
-  place (477
+  place (479
   tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
@@ -777,7 +795,7 @@ area changes.
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | ✅ keyboard flow, focus trap, labels/live regions, AA contrast | F9 | P2 |
-| Tests / lint / CI | 🟡 477 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 479 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -789,9 +807,9 @@ area changes.
 | A2 | Critical | Data | 15 s polling ≈ 5,760 requests/day against a daily-credit API; no budget, backoff, or 429 handling. | **Resolved 2026-11-12 (M1.3):** provider-aware cadence, area cost, 4,000/day budget with 10% reserve, 90% auto-pause, backoff, and 429 handling. |
 | A3 | High | Data | A failed poll replaces data with an error; no last-good snapshot. | **Resolved 2026-11-12 (M1.4):** last-good snapshot retained; non-destructive stale/error banner (F5.5, F7.5). |
 | A4 | High | Data | In-flight requests are not cancelled when the area changes; overlapping timers are possible. | **Resolved 2026-11-12 (M1.3–M1.4):** latest-wins coordinator aborts stale requests; single pending poll; visibility pause. |
-| A5 | High | Map | Positions jump on every refresh; no interpolation or trails. | Smoothing layer (F3.3–F3.4). |
-| A6 | High | Map | Marker icons are recreated on every render. | Stable icon instances and memoization (F8.1). |
-| A7 | Medium | Map | Map never fits to the selected area; starts at London regardless of the drawn perimeter. | Auto-fit (F2.5). |
+| A5 | High | Map | Positions jump on every refresh; no interpolation or trails. | **Resolved (M2):** interpolation, dead reckoning, and trails. |
+| A6 | High | Map | Marker icons are recreated on every render. | **Resolved (M2):** cached heading icons with imperative visual updates. |
+| A7 | Medium | Map | Map never fits to the selected area; starts at London regardless of the drawn perimeter. | **Resolved (M3/M3.5):** perimeter and cone auto-fit. |
 | A8 | Medium | Map/list | Map shows on-ground aircraft; the list filters them out. | Unify behavior or add an explicit filter (F3.7). |
 | A9 | Medium | Detail | Selected aircraft vanishes when it leaves the feed. | Sticky last-known detail with stale state (F4.4). |
 | A10 | Medium | UI | Empty state says "Set a search area" even when an area is set with no aircraft. | **Resolved 2026-11-12 (M1.5):** `flightListState` distinguishes no-area, loading, unavailable, and genuinely empty states. |
@@ -800,8 +818,8 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 477 tests and production build added; favicon and lint/CI remain. |
-| A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 479 tests, `public/plane.svg` favicon, and production build added; lint/CI remain. |
+| A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | **Resolved (M4):** collapsible bottom sheet + `ResizeObserver` map invalidation. |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Resolved 2026-11-12 (M4):** all controls labelled, visible focus rings, popover focus trap, keyboard map selection, live announcements, and AA contrast verified by `npm run a11y:check`. |
 
 ---
@@ -855,4 +873,5 @@ area changes.
 | 2026-11-12 | **M3.6.3 implemented:** Added the Saved areas toolbar popover with save/save-as, Update when the active selection matches, restore with fetch and map re-fit, inline rename/delete, active marking, relative last-used time, keyboard dismissal/focus return, and a mobile sheet. 468 tests, typecheck, and build pass; Chrome verified the full library lifecycle and mobile fit. |
 | 2026-11-12 | **M3.6.4 implemented:** Cross-tab storage updates now adopt the parsed workspace immediately; saved-library CRUD syncs across tabs, invalid entries are skipped while valid settings survive, and failed writes keep working in memory. 469 tests, typecheck, and build pass; Chrome verified cross-tab save/rename/delete, corrupt-entry filtering, and failed-write operation. Final M3.6 verification remains. |
 | 2026-11-12 | **M3.6.5 implemented:** Added `npm run saved:check` for the full two-perimeter/one-View lifecycle, restore/rename/delete persistence, v1 migration, cap/invalid entries, and mobile layout. Re-ran and stabilized `view:check`. 469 tests and both browser harnesses pass; typecheck and build pass. M3 and M3.6 are complete. |
-| 2026-11-12 | **M4 implemented:** Added the collapsible mobile bottom sheet, safe-area padding, and ResizeObserver map invalidation; keyboard-only map selection (arrows + Enter/Escape), button flight rows, popover focus trapping, skip link, labels/live announcements, and AA contrast tokens. Recorded the no-clustering decision. 477 tests and `npm run a11y:check`, `view:check`, `saved:check`, typecheck, and build pass. M4 is complete. |
+| 2026-11-12 | **M4 implemented:** Added the collapsible mobile bottom sheet, safe-area padding, and ResizeObserver map invalidation; keyboard-only map selection (arrows + Enter/Escape), button flight rows, popover focus trapping, skip link, labels/live announcements, and AA contrast tokens. Recorded the no-clustering decision. 479 tests and `npm run a11y:check`, `view:check`, `saved:check`, typecheck, and build pass. M4 is complete. |
+| 2026-11-12 | **M5 implemented:** Adopted Tailwind v3.4 and a semantic light/dark token layer, then restyled the toolbar, panel, rows, boarding-pass detail card, popovers, banners, and empty/error states with Inter/Playfair/JetBrains Mono and stroke-1.5 SVG icons. Added light OSM and locally filtered dark tiles, 32 px zoom-aware two-tone markers with a selected ring, and a plane favicon. Documented `docs/STYLE.md`; `style:check` captures 8 theme/state screenshots and verifies cardinal headings. 479 tests and `a11y:check`, `style:check`, `view:check`, `saved:check`, typecheck, and build pass. |
