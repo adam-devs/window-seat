@@ -12,6 +12,10 @@ import { StatusBanner } from './components/StatusBanner';
 import { useFlights } from './hooks/useFlights';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
+import {
+  MOBILE_LAYOUT_QUERY,
+  useMediaQuery,
+} from './hooks/useMediaQuery';
 import { deriveStatusBanner } from './data/statusBanner';
 import {
   updateDirectionalSelection,
@@ -55,6 +59,13 @@ export default function App() {
   // lets the toolbar explain what to click next.
   const [pendingDirectionOrigin, setPendingDirectionOrigin] =
     useState<DirectionalOrigin | null>(null);
+  // The aircraft panel becomes a collapsible bottom sheet on phones. The
+  // media-query hook keeps the control out of the desktop tab order.
+  const isMobile = useMediaQuery(MOBILE_LAYOUT_QUERY);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const handleTogglePanel = useCallback(() => {
+    setPanelCollapsed((collapsed) => !collapsed);
+  }, []);
 
   // Perimeter mode queries the drawn rectangle; View mode queries the cone's
   // enclosing bbox and filters the snapshot client-side. The memo is keyed by
@@ -303,6 +314,10 @@ export default function App() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#nearby-aircraft">
+        Skip to aircraft list
+      </a>
+
       <Toolbar
         onRefresh={refresh}
         onClear={handleClear}
@@ -337,6 +352,12 @@ export default function App() {
 
       <div className="main">
         <div className="map-container">
+          <p id="map-keyboard-instructions" className="sr-only">
+            Use the arrow keys to move the map. Press Enter to select the map
+            centre. In Perimeter mode the first Enter places a corner and the
+            second creates the area. In View mode the first Enter pins the
+            origin and the second aims the cone. Press Escape to cancel.
+          </p>
           <FlightMap
             flights={visibleFlights}
             bbox={activeBbox}
@@ -370,6 +391,9 @@ export default function App() {
           status={status}
           mode={workspace.mode}
           units={workspace.units}
+          collapsible={isMobile}
+          collapsed={isMobile && panelCollapsed}
+          onToggleCollapsed={handleTogglePanel}
         />
       </div>
     </div>

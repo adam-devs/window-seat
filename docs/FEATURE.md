@@ -227,8 +227,8 @@ and styles, with no tests, linting, or deployment configuration.
 | Settings / persistence | ⛔ |
 | Units toggle | ⛔ |
 | Mobile layout | 🟡 functional but cramped |
-| Accessibility | 🟡 partial |
-| Tests / lint / CI | ⛔ |
+| Accessibility | ✅ keyboard flow, focus, labels, live regions, AA contrast |
+| Tests / lint / CI | 🟡 477 tests ✅; lint/CI ⛔ |
 
 ### 3.8 M1 as-built status (2026-11-12)
 
@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 469 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 477 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -259,8 +259,9 @@ Subsequent status:
   visibility-distance/cost controls, persistence, and empty states are
   implemented and verified by `npm run view:check`.
 - The M3.6 saved-area/View library is implemented and verified by
-  `npm run saved:check`; mobile/accessibility remains M4.
-- Mobile/accessibility (M4) and the visual pass (M5) remain deferred.
+  `npm run saved:check`.
+- Mobile/accessibility (M4) is implemented and verified by `npm run a11y:check`;
+  the visual pass (M5) remains.
 - Community providers remain deferred.
 - Lint/CI remain unconfigured; tests and the production build are the current
   local gates.
@@ -276,7 +277,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 469 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 477 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -285,6 +286,24 @@ Still deferred within area selection:
 - Drag-to-draw and a pre-commit preview (F2.4).
 - Workspace persistence of the last perimeter (M3).
 - The future directional View mode and cone (M3.5).
+
+### 3.10 M4 as-built status (2026-11-12)
+
+M4 makes the app usable on phones and without a mouse:
+
+| Area | M4 status |
+| --- | --- |
+| Mobile layout | ✅ collapsible bottom sheet (≤700 px), 50 dvh cap, safe-area padding, compact icon buttons, 36–48 px touch targets |
+| Map resizing | ✅ `ResizeObserver` invalidates Leaflet after sheet collapse, rotation, or toolbar reflow |
+| Keyboard selection | ✅ map is focusable; arrow keys pan; Enter places corners or pins/aims the View at the map centre; Escape cancels |
+| Keyboard list | ✅ rows are `<button>` elements with `aria-pressed`; detail card is a labelled region |
+| Screen readers | ✅ map instructions/description, selection and filter announcements, skip link, named landmarks; decorative emoji hidden |
+| Focus | ✅ both popovers trap Tab, restore focus on close, and keep Escape/outside-click dismissal |
+| Contrast | ✅ key text ≥4.5:1 (≥3:1 large/bold) on the dark theme; muted/accent tokens adjusted |
+| Decluttering | ✅ no clustering: direction-aware 28 px markers, stale dimming, raised selection; trails are the future lever if load grows |
+| Tests | ✅ 477 Vitest tests |
+| Browser checks | ✅ `npm run a11y:check` (keyboard, focus, mobile sheet/resize, contrast), plus `view:check` and `saved:check` |
+| Build | ✅ `npm run build` passes |
 
 ---
 
@@ -717,7 +736,7 @@ area changes.
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
   🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
   trail, visual-state, list controls, and performance-harness coverage are in
-  place (469
+  place (477
   tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
@@ -740,7 +759,7 @@ area changes.
 | Smooth marker motion | ⛔ | F3.3 | P0 |
 | Aircraft trails | ✅ observed 120 s + projected segment | F3.4 | P1 |
 | Altitude styling / marker legibility | ✅ 28 px north-up SVG + halo | F3.2 | P1 |
-| Decluttering / clustering | ⛔ | F3.6 | P1 |
+| Decluttering / clustering | ✅ decision: no clustering at the 300-aircraft target; trails/scale if load grows | F3.6 | P1 |
 | Follow selected aircraft | ⛔ | F3.5 | P2 |
 | Consistent ground traffic | 🟡 | F3.7 | P1 |
 | Sort / filter / search | ✅ | F4.1–F4.3 | P1 |
@@ -757,8 +776,8 @@ area changes.
 | Distinct UI states | ✅ | F7 | P1 |
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
-| Accessibility pass | 🟡 labels/focus started | F9 | P2 |
-| Tests / lint / CI | 🟡 469 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Accessibility pass | ✅ keyboard flow, focus trap, labels/live regions, AA contrast | F9 | P2 |
+| Tests / lint / CI | 🟡 477 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -781,9 +800,9 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 469 tests and production build added; favicon and lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 477 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
-| A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
+| A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Resolved 2026-11-12 (M4):** all controls labelled, visible focus rings, popover focus trap, keyboard map selection, live announcements, and AA contrast verified by `npm run a11y:check`. |
 
 ---
 
@@ -836,3 +855,4 @@ area changes.
 | 2026-11-12 | **M3.6.3 implemented:** Added the Saved areas toolbar popover with save/save-as, Update when the active selection matches, restore with fetch and map re-fit, inline rename/delete, active marking, relative last-used time, keyboard dismissal/focus return, and a mobile sheet. 468 tests, typecheck, and build pass; Chrome verified the full library lifecycle and mobile fit. |
 | 2026-11-12 | **M3.6.4 implemented:** Cross-tab storage updates now adopt the parsed workspace immediately; saved-library CRUD syncs across tabs, invalid entries are skipped while valid settings survive, and failed writes keep working in memory. 469 tests, typecheck, and build pass; Chrome verified cross-tab save/rename/delete, corrupt-entry filtering, and failed-write operation. Final M3.6 verification remains. |
 | 2026-11-12 | **M3.6.5 implemented:** Added `npm run saved:check` for the full two-perimeter/one-View lifecycle, restore/rename/delete persistence, v1 migration, cap/invalid entries, and mobile layout. Re-ran and stabilized `view:check`. 469 tests and both browser harnesses pass; typecheck and build pass. M3 and M3.6 are complete. |
+| 2026-11-12 | **M4 implemented:** Added the collapsible mobile bottom sheet, safe-area padding, and ResizeObserver map invalidation; keyboard-only map selection (arrows + Enter/Escape), button flight rows, popover focus trapping, skip link, labels/live announcements, and AA contrast tokens. Recorded the no-clustering decision. 477 tests and `npm run a11y:check`, `view:check`, `saved:check`, typecheck, and build pass. M4 is complete. |

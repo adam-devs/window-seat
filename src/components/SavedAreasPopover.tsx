@@ -16,6 +16,7 @@ import {
   type SavedSelectionKind,
 } from '../data/savedSelections';
 import { formatClockTime, formatDataAge } from '../data/statusBanner';
+import { trapDialogFocus } from './dialogFocus';
 
 interface SavedAreasPopoverProps {
   selections: SavedSelection[];
@@ -81,6 +82,10 @@ export function SavedAreasPopover({
       if (!wrapRef.current?.contains(event.target as Node)) close();
     }
     function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Tab') {
+        trapDialogFocus(event, dialogRef.current);
+        return;
+      }
       if (event.key !== 'Escape') return;
       event.preventDefault();
       close();
@@ -161,7 +166,9 @@ export function SavedAreasPopover({
         title="Saved areas"
         onClick={() => setOpen((value) => !value)}
       >
-        <span aria-hidden="true">🔖</span> Saved areas
+        <span aria-hidden="true">🔖</span>
+        <span className="btn-label">Saved areas</span>
+
         {selections.length > 0 && (
           <span className="saved-trigger-count">{selections.length}</span>
         )}

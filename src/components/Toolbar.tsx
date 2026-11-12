@@ -89,18 +89,30 @@ export function Toolbar({
 
       <div className="perimeter-instructions">
         <span aria-live="polite">{instruction}</span>
-        <button className="clear-btn" onClick={onClear}>
+        <span className="keyboard-hint" aria-hidden="true">
+          Arrows pan · Enter selects
+        </span>
+        <button type="button" className="clear-btn" onClick={onClear}>
           Clear
         </button>
       </div>
 
       {/* Refresh */}
-      <button className="refresh-btn" onClick={onRefresh} disabled={loading}>
-        {loading ? '⏳' : '🔄'} Refresh
+      <button
+        type="button"
+        className="refresh-btn"
+        onClick={onRefresh}
+        disabled={loading}
+        aria-busy={loading}
+        aria-label="Refresh"
+      >
+        <span aria-hidden="true">{loading ? '⏳' : '🔄'}</span>
+        <span className="btn-label">Refresh</span>
       </button>
 
       <SavedAreasPopover
         selections={savedSelections}
+
         mode={mode}
         perimeter={perimeter}
         direction={direction}

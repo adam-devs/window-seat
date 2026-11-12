@@ -30,6 +30,10 @@ interface FlightPanelProps {
   status: FlightStatus;
   mode: SelectionMode;
   units: UnitSystem;
+  /** Phones render the panel as a collapsible bottom sheet. */
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 interface FlightRowProps {
@@ -65,20 +69,22 @@ const FlightRow = memo(function FlightRow({
   units,
 }: FlightRowProps) {
   return (
-    <div
+    <button
+      type="button"
       className={`flight-row ${selected ? 'active' : ''}`}
+      aria-pressed={selected}
       onClick={() => onSelectFlight(selected ? null : flight.icao24)}
     >
-      <div className="flight-row-main">
+      <span className="flight-row-main">
         <span className="row-callsign">{flight.callsign ?? 'N/A'}</span>
         <span className="row-country">{flight.origin_country ?? '—'}</span>
-      </div>
-      <div className="flight-row-sub">
+      </span>
+      <span className="flight-row-sub">
         <span>{formatAltitude(flight.baro_altitude, units)}</span>
         <span>{formatSpeed(flight.velocity, units)}</span>
         {flight.on_ground && <span className="row-ground">On ground</span>}
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }, flightRowPropsEqual);
 
@@ -95,6 +101,9 @@ export function FlightPanel({
   status,
   mode,
   units,
+  collapsible = false,
+  collapsed = false,
+  onToggleCollapsed,
 }: FlightPanelProps) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<FlightSort>(DEFAULT_FLIGHT_VIEW.sort);
@@ -164,10 +173,42 @@ export function FlightPanel({
     setFilter(DEFAULT_FLIGHT_VIEW.filter);
   }
 
+  const selectionAnnouncement = selected
+    ? `Selected ${selected.callsign ?? selected.icao24.toUpperCase()}, ${
+        selected.on_ground ? 'on ground' : 'airborne'
+      }.`
+    : '';
+
   return (
-    <div className="flight-panel">
+    <aside
+      id="nearby-aircraft"
+      className={`flight-panel${collapsed ? ' flight-panel--collapsed' : ''}`}
+      aria-label="Nearby aircraft"
+      tabIndex={-1}
+    >
+      {collapsible && (
+        <div className="sheet-handle" aria-hidden="true">
+          <span />
+        </div>
+      )}
+
       <div className="panel-header">
-        <h2>WindowSeat</h2>
+        <div className="panel-title-row">
+          <h2>WindowSeat</h2>
+          {collapsible && onToggleCollapsed && (
+            <button
+              type="button"
+              className="sheet-toggle"
+              aria-expanded={!collapsed}
+              aria-controls="flight-panel-body"
+              aria-label={`${collapsed ? 'Show' : 'Hide'} aircraft list`}
+              onClick={onToggleCollapsed}
+            >
+              <span aria-hidden="true">{collapsed ? '▴' : '▾'}</span>
+              {collapsed ? 'Show list' : 'Hide list'}
+            </button>
+          )}
+        </div>
         <p
           className="subtitle"
           title={header.exactTime ? `Updated at ${header.exactTime}` : undefined}
@@ -177,135 +218,146 @@ export function FlightPanel({
         {header.provider && <p className="provider">{header.provider}</p>}
         {error && <p className="error-msg">{error}</p>}
         <p className="count">{countLabel}</p>
+        <p className="sr-only" role="status" aria-live="polite">
+          {selectionAnnouncement}
+        </p>
       </div>
 
-      {hasArea && (
-        <div className="flight-controls">
-          <input
-            className="flight-search"
-            type="search"
-            placeholder="Search callsign or ICAO24…"
-            aria-label="Search flights"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <div className="flight-control-row">
-            <label className="flight-control">
-              <span>Sort</span>
-              <select
-                aria-label="Sort flights"
-                value={sort}
-                onChange={(event) =>
-                  setSort(event.target.value as FlightSort)
-                }
-              >
-                <option value="callsign">Callsign A–Z</option>
-                <option value="altitude-desc">Altitude ↓</option>
-                <option value="speed-desc">Speed ↓</option>
-                <option value="vertical-desc">Vertical rate ↓</option>
-                <option value="contact-desc">Last contact ↓</option>
-              </select>
-            </label>
-            <label className="flight-control">
-              <span>Show</span>
-              <select
-                aria-label="Filter flights"
-                value={filter}
-                onChange={(event) =>
-                  setFilter(event.target.value as FlightFilter)
-                }
-              >
-                <option value="airborne">Airborne</option>
-                <option value="on-ground">On ground</option>
-                <option value="all">All</option>
-              </select>
-            </label>
+      <div
+        id="flight-panel-body"
+        className="flight-panel-body"
+        hidden={collapsed}
+      >
+        {hasArea && (
+          <div className="flight-controls">
+            <input
+              className="flight-search"
+              type="search"
+              placeholder="Search callsign or ICAO24…"
+              aria-label="Search flights"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className="flight-control-row">
+              <label className="flight-control">
+                <span>Sort</span>
+                <select
+                  aria-label="Sort flights"
+                  value={sort}
+                  onChange={(event) =>
+                    setSort(event.target.value as FlightSort)
+                  }
+                >
+                  <option value="callsign">Callsign A–Z</option>
+                  <option value="altitude-desc">Altitude ↓</option>
+                  <option value="speed-desc">Speed ↓</option>
+                  <option value="vertical-desc">Vertical rate ↓</option>
+                  <option value="contact-desc">Last contact ↓</option>
+                </select>
+              </label>
+              <label className="flight-control">
+                <span>Show</span>
+                <select
+                  aria-label="Filter flights"
+                  value={filter}
+                  onChange={(event) =>
+                    setFilter(event.target.value as FlightFilter)
+                  }
+                >
+                  <option value="airborne">Airborne</option>
+                  <option value="on-ground">On ground</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+            </div>
+            {filtersActive && (
+              <div className="flight-view-summary">
+                <span aria-live="polite">
+                  {visibleFlights.length} of {flights.length} shown
+                </span>
+                <button type="button" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              </div>
+            )}
           </div>
-          {filtersActive && (
-            <div className="flight-view-summary">
-              <span aria-live="polite">
-                {visibleFlights.length} of {flights.length} shown
-              </span>
-              <button type="button" onClick={clearFilters}>
-                Clear filters
+        )}
+
+        {/* Detail card for selected flight */}
+        {selected && (
+          <div
+            className={`detail-card ${lostContact ? 'detail-card--last-known' : ''}`}
+            role="region"
+            aria-label={`${selected.callsign ?? selected.icao24.toUpperCase()} details`}
+          >
+            <div className="detail-header">
+              <div className="detail-title">
+                <span className="callsign">{selected.callsign ?? 'N/A'}</span>
+                {lostContact && (
+                  <span className="last-known-badge">Last known</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="close-btn"
+                aria-label="Close flight details"
+                onClick={() => onSelectFlight(null)}
+              >
+                ✕
               </button>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Detail card for selected flight */}
-      {selected && (
-        <div
-          className={`detail-card ${lostContact ? 'detail-card--last-known' : ''}`}
-        >
-          <div className="detail-header">
-            <div className="detail-title">
-              <span className="callsign">{selected.callsign ?? 'N/A'}</span>
-              {lostContact && (
-                <span className="last-known-badge">Last known</span>
-              )}
+            {lostContact && (
+              <p className="last-known-note">
+                No longer in the latest snapshot.
+              </p>
+            )}
+            <div className="detail-grid">
+              <DetailItem label="ICAO24" value={selected.icao24.toUpperCase()} />
+              <DetailItem label="Country" value={selected.origin_country ?? '—'} />
+              <DetailItem label="Altitude" value={formatAltitude(selected.baro_altitude, units)} />
+              <DetailItem label="Speed" value={formatSpeed(selected.velocity, units)} />
+              <DetailItem label="Vertical" value={formatVerticalRate(selected.vertical_rate, units)} />
+              <DetailItem label="Heading" value={selected.true_track !== null ? `${Math.round(selected.true_track)}°` : '—'} />
+              <DetailItem label="Squawk" value={selected.squawk ?? '—'} />
+              <DetailItem label="Status" value={selected.on_ground ? 'On ground' : 'Airborne'} />
             </div>
-            <button
-              type="button"
-              className="close-btn"
-              aria-label="Close flight details"
-              onClick={() => onSelectFlight(null)}
+            <a
+              href={`https://www.flightradar24.com/${selected.callsign ?? selected.icao24}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="fr24-link"
             >
-              ✕
-            </button>
+              View on FlightRadar24 ↗
+            </a>
           </div>
-          {lostContact && (
-            <p className="last-known-note">
-              No longer in the latest snapshot.
+        )}
+
+        {/* Flight list */}
+        <div
+          className="flight-list"
+          aria-busy={loading}
+          aria-label="Flight results"
+        >
+          {listState && (
+            <p
+              className={`empty-msg empty-msg--${listState.kind}`}
+              role="status"
+            >
+              {listState.message}
             </p>
           )}
-          <div className="detail-grid">
-            <DetailItem label="ICAO24" value={selected.icao24.toUpperCase()} />
-            <DetailItem label="Country" value={selected.origin_country ?? '—'} />
-            <DetailItem label="Altitude" value={formatAltitude(selected.baro_altitude, units)} />
-            <DetailItem label="Speed" value={formatSpeed(selected.velocity, units)} />
-            <DetailItem label="Vertical" value={formatVerticalRate(selected.vertical_rate, units)} />
-            <DetailItem label="Heading" value={selected.true_track !== null ? `${Math.round(selected.true_track)}°` : '—'} />
-            <DetailItem label="Squawk" value={selected.squawk ?? '—'} />
-            <DetailItem label="Status" value={selected.on_ground ? 'On ground' : 'Airborne'} />
-          </div>
-          <a
-            href={`https://www.flightradar24.com/${selected.callsign ?? selected.icao24}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="fr24-link"
-          >
-            View on FlightRadar24 ↗
-          </a>
+          {visibleFlights.map((f) => (
+            <FlightRow
+              key={f.icao24}
+              flight={f}
+              selected={f.icao24 === selectedFlight}
+              onSelectFlight={onSelectFlight}
+              units={units}
+            />
+          ))}
         </div>
-      )}
-
-      {/* Flight list */}
-      <div
-        className="flight-list"
-        aria-busy={loading}
-        aria-label="Nearby aircraft"
-      >
-        {listState && (
-          <p
-            className={`empty-msg empty-msg--${listState.kind}`}
-            role="status"
-          >
-            {listState.message}
-          </p>
-        )}
-        {visibleFlights.map((f) => (
-          <FlightRow
-            key={f.icao24}
-            flight={f}
-            selected={f.icao24 === selectedFlight}
-            onSelectFlight={onSelectFlight}
-            units={units}
-          />
-        ))}
       </div>
-    </div>
+    </aside>
   );
 }
 
