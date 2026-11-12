@@ -46,6 +46,8 @@ gets a live map and list of aircraft in that area.
 - Flight planning, ticketing, schedules, arrivals/departures, or route lookup.
 - Historical playback, fleet tracking, or a long-term aircraft database.
 - Accounts, cross-device sync, or a server-side user database.
+- Production hosting or deployment: the app runs locally through the Vite dev
+  server. A hosted proxy/backend is out of scope.
 - Guaranteed global coverage or professional-grade data accuracy.
 - Native mobile or desktop apps.
 
@@ -117,14 +119,15 @@ styles, with no tests, linting, or deployment configuration.
 - Auto-refreshes every 15 seconds; manual refresh restarts the interval.
 - Clears the list when no bounding box is active.
 - **Gaps**
-  - Sends a literal placeholder credential:
-    `Authorization: 'Basic ' + btoa('$TOKEN')`.
+  - ~~Sends a literal placeholder credential.~~ Fixed 2026-11-12: the fake
+    header was removed and the Vite dev proxy now injects an OAuth2 bearer token
+    from `.env.local`, falling back to anonymous access.
   - 15-second polling produces roughly 5,760 requests per day, which does not fit
     the OpenSky daily credit model. There is no request budget or backoff.
   - No handling for HTTP 429, 5xx, timeouts, or aborted requests.
   - A failed poll replaces the visible data with an error state; last-good data
     is not retained.
-  - Production requires a proxy, but no production path or configuration exists.
+  - CORS requires the dev proxy; production hosting is out of scope.
   - Response shape is not validated at runtime.
 
 ### 3.3 Map ✅ / 🟡
@@ -337,8 +340,8 @@ the map; selection remains coherent across a refresh.
 - **F5.6 Cancellation** — abort in-flight requests when the area changes.
 - **F5.7 Credentials** — read optional credentials from environment/config; never
   ship a literal placeholder token.
-- **F5.8 Production transport** — document and support the proxy/CORS strategy
-  required for static hosting.
+- **F5.8 Local transport** — use the Vite dev proxy to bypass CORS and inject
+  OAuth2 credentials server-side. Production hosting is out of scope.
 - **F5.9 Normalisation** — one internal state model with SI units; map provider
   fields defensively and reject malformed records.
 
@@ -437,12 +440,14 @@ frequently; confirm them during implementation.
 ### 5.2 Recommendation
 
 - Build a provider interface first.
-- Default to a no-key community ADS-B provider for rich fields and simpler
-  operation, with OpenSky as the alternate/fallback.
+- For the current local-only scope, use authenticated OpenSky through the Vite
+  dev proxy; anonymous access is the fallback.
+- Defer community ADS-B providers until OpenSky freshness or field coverage
+  proves insufficient for smooth tracking.
 - Keep all provider-specific mapping in adapters so swapping sources does not
   touch UI code.
 - Do not assume paid providers; document them as an upgrade path.
-- Verify current terms, CORS behavior, and limits before committing to a default.
+- Verify current terms, CORS behavior, and limits before adding a provider.
 
 ---
 
@@ -629,7 +634,7 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 
 | ID | Severity | Area | Finding | Resolution |
 | --- | --- | --- | --- | --- |
-| A1 | Critical | Data | `Authorization: 'Basic ' + btoa('$TOKEN')` sends a literal placeholder credential. | Remove; read real credentials from config or use an unauthenticated provider (F5.7). |
+| A1 | Critical | Data | `Authorization: 'Basic ' + btoa('$TOKEN')` sent a literal placeholder credential. | **Resolved 2026-11-12:** fake header removed; the Vite dev proxy injects an OAuth2 bearer token from `.env.local`, with anonymous fallback. |
 | A2 | Critical | Data | 15 s polling ≈ 5,760 requests/day against a daily-credit API; no budget, backoff, or 429 handling. | Provider-aware cadence and budgeting (F5.3–F5.4). |
 | A3 | High | Data | A failed poll replaces data with an error; no last-good snapshot. | Retain last success and show a stale banner (F5.5, F7.5). |
 | A4 | High | Data | In-flight requests are not cancelled when the area changes; overlapping timers are possible. | AbortController and a single polling lifecycle (F5.6). |
@@ -640,11 +645,11 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 | A9 | Medium | Detail | Selected aircraft vanishes when it leaves the feed. | Sticky last-known detail with stale state (F4.4). |
 | A10 | Medium | UI | Empty state says "Set a search area" even when an area is set with no aircraft. | Distinguish empty causes (F7.3). |
 | A11 | Medium | Geocoding | No debounce, cancellation, or provider-policy headers. | Harden search flow (F2.1). |
-| A12 | Medium | Config | No environment/config mechanism; dev-only proxy; no production strategy. | Config + documented proxy (F5.7–F5.8). |
+| A12 | Medium | Config | No environment/config mechanism; dev-only proxy; no production strategy. | **Partially resolved 2026-11-12:** `.env.local` + `.env.example` and a Vite OAuth2 proxy. Typed app config still pending; production is out of scope. |
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | Typed enum and defensive parsing (F5.9). |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | Cleanup and tooling (7.7). |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | Brace directory removed 2026-11-12; favicon and tooling remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | Accessibility pass (F9). |
 
@@ -655,10 +660,9 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 ### Open questions
 
 - Default units: aviation or metric?
-- Final default provider after the evaluation, and whether to ship two providers
-  or one plus fallback.
-- Deployment target and whether the production proxy is a serverless function, a
-  tiny Node service, or a hosted proxy.
+- Whether to add community providers after OpenSky proves insufficient, or stay
+  OpenSky-only.
+- Whether to request OpenSky `extended=1` for aircraft category data.
 - Whether to keep the FlightRadar24 link as the only external lookup.
 - Default radius (suggested 150 km) and whether to allow below 25 km.
 - Maximum aircraft count to render before clustering or capping.
@@ -669,6 +673,7 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 
 - Distance, bearing, elevation, visibility cone, and overhead-pass prediction.
 - Accounts, sync, and server-side storage.
+- Production hosting, deployment, or a hosted proxy.
 - Route, airline, schedule, arrival, and departure enrichment.
 - Historical playback and long-term data retention.
 - Paid real-time feeds as a baseline requirement.
@@ -681,3 +686,4 @@ Unknown or invalid payloads fall back to defaults; never throw during startup.
 | Date | Change |
 | --- | --- |
 | 2026-11-12 | Initial specification: current-state inventory, target features F1–F9, provider evaluation, contracts, audit. |
+| 2026-11-12 | Local-only scope confirmed; local OAuth2 proxy implemented; fake credential removed; A1 resolved, A12 partially resolved. |

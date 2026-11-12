@@ -30,13 +30,9 @@ export async function fetchFlights(bbox: BoundingBox): Promise<StateVector[]> {
     lomax: bbox.lomax.toString(),
   });
 
-  // Uses the Vite proxy to avoid CORS issues in dev.
-  // In production, you'll need a backend proxy or CORS-enabled endpoint.
-  const res = await fetch(`/opensky/api/states/all?${params.toString()}`, {
-  headers: {
-    Authorization: 'Basic ' + btoa('$TOKEN'),
-  },
-});
+  // Uses the Vite dev proxy to avoid CORS issues in dev.
+  // The proxy also injects OpenSky OAuth credentials from `.env.local` when set.
+  const res = await fetch(`/opensky/api/states/all?${params.toString()}`);
 
   if (!res.ok) {
     throw new Error(`OpenSky API error: ${res.status} ${res.statusText}`);

@@ -23,25 +23,30 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ## Notes on the OpenSky API
 
-- **No API key needed** for anonymous access (max 100 requests/day, 1 req/10s).
-- If you [register a free account](https://opensky-network.org/index.php?option=com_users&view=registration) you get 400 requests/day.
-- The Vite dev server proxies `/opensky` → `https://opensky-network.org` to avoid CORS.  
-  For production you'll need a lightweight backend proxy (e.g. a tiny Express/Fastify server or Cloudflare Worker).
+- The app is intended to run **locally** via `npm run dev`.
+- OpenSky now requires OAuth2 client credentials; basic auth is no longer
+  supported.
+- Anonymous access works but is limited (400 credits/day per IP).
+- The Vite dev server proxies `/opensky` → `https://opensky-network.org` to avoid
+  CORS, and injects your bearer token server-side.
+- For production you would need your own proxy; that is out of scope here.
 
-### Adding OpenSky credentials (optional)
+### Adding OpenSky credentials (recommended)
 
-In `src/utils/opensky.ts`, change:
-```ts
-const res = await fetch(`/opensky/api/states/all?${params.toString()}`);
+1. Log in at [opensky-network.org](https://opensky-network.org) and create an API
+   client on your Account page.
+2. Copy `.env.example` to `.env.local` and fill in:
+
+```bash
+OPENSKY_CLIENT_ID=your-client-id
+OPENSKY_CLIENT_SECRET=your-client-secret
 ```
-to:
-```ts
-const res = await fetch(`/opensky/api/states/all?${params.toString()}`, {
-  headers: {
-    Authorization: 'Basic ' + btoa('YOUR_USERNAME:YOUR_PASSWORD'),
-  },
-});
-```
+
+Do not use the `VITE_` prefix: these values stay in the Vite dev server and are
+never included in the browser bundle. `.env.local` is gitignored.
+
+The proxy fetches and refreshes an OAuth2 token automatically. If credentials
+are missing or the token request fails, the app falls back to anonymous access.
 
 ## Project Structure
 
