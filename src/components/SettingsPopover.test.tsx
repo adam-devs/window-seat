@@ -46,25 +46,30 @@ const budget: BudgetStatus = {
 
 function renderPopover(overrides: Partial<{
   autoRefreshMs: number;
+  units: 'aviation' | 'metric';
   cadence: Cadence | null;
   budget: BudgetStatus;
   onChange: (ms: number) => void;
+  onUnitsChange: (units: 'aviation' | 'metric') => void;
   onReset: () => void;
 }> = {}) {
   const onChange = overrides.onChange ?? vi.fn();
+  const onUnitsChange = overrides.onUnitsChange ?? vi.fn();
   const onReset = overrides.onReset ?? vi.fn();
 
   render(
     <SettingsPopover
       autoRefreshMs={overrides.autoRefreshMs ?? 30_000}
+      units={overrides.units ?? 'aviation'}
       cadence={overrides.cadence === undefined ? cadence : overrides.cadence}
       budget={overrides.budget ?? budget}
       onChange={onChange}
+      onUnitsChange={onUnitsChange}
       onReset={onReset}
     />,
   );
 
-  return { onChange, onReset };
+  return { onChange, onUnitsChange, onReset };
 }
 
 function openPopover(): HTMLElement {
@@ -114,6 +119,19 @@ describe('SettingsPopover', () => {
     fireEvent.click(screen.getByRole('radio', { name: /1 min/ }));
 
     expect(onChange).toHaveBeenCalledWith(60_000);
+  });
+
+  it('changes the display units', () => {
+    const { onUnitsChange } = renderPopover({ units: 'aviation' });
+    openPopover();
+
+    const metric = screen.getByRole('radio', {
+      name: /Metric/,
+    }) as HTMLInputElement;
+    expect(metric.checked).toBe(false);
+    fireEvent.click(metric);
+
+    expect(onUnitsChange).toHaveBeenCalledWith('metric');
   });
 
   it('resets to the default interval', () => {

@@ -13,6 +13,7 @@ export type FlightListStateKind =
   | 'loading'
   | 'waiting'
   | 'unavailable'
+  | 'filtered'
   | 'empty';
 
 export interface FlightListState {
@@ -25,6 +26,8 @@ export interface FlightListStateInput {
   status: FlightStatus;
   /** Number of rows that would actually be rendered (usually airborne). */
   visibleCount: number;
+  /** True when a search or non-default status filter can hide all rows. */
+  filtersActive?: boolean;
 }
 
 /** Returns the empty-state copy, or null when rows are on screen. */
@@ -54,6 +57,12 @@ export function deriveFlightListState(
     case 'ready':
     case 'refreshing':
     case 'stale':
+      if (input.filtersActive) {
+        return {
+          kind: 'filtered',
+          message: 'No aircraft match the current filters.',
+        };
+      }
       return {
         kind: 'empty',
         message: 'No airborne aircraft in this area right now.',

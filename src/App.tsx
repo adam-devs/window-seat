@@ -1,24 +1,34 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { FlightMap } from './components/FlightMap';
 import { FlightPanel } from './components/FlightPanel';
 import { Toolbar } from './components/Toolbar';
 import { StatusBanner } from './components/StatusBanner';
 import { useFlights } from './hooks/useFlights';
-import { useSettings } from './hooks/useSettings';
+import { useWorkspace } from './hooks/useWorkspace';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { deriveStatusBanner } from './data/statusBanner';
-import type { BoundingBox } from './types';
+import { DEFAULT_SETTINGS } from './settings';
 import './app.css';
 
 export default function App() {
-  const [perimeterBbox, setPerimeterBbox] = useState<BoundingBox | null>(null);
+  const { workspace, setPerimeter, setAutoRefreshMs, setUnits } =
+    useWorkspace();
   const [selectedFlight, setSelectedFlight] = useState<string | null>(null);
 
-  // Perimeter is the only selection mode. Keeping the bbox in state means a
-  // re-render does not look like an area change and abort the in-flight request.
-  const activeBbox = perimeterBbox;
+  // The restored or drawn perimeter is the single source of truth. Persisting
+  // it keeps startup and cross-tab state consistent.
+  const activeBbox = workspace.perimeter;
+  const areaKey = activeBbox
+    ? `${activeBbox.lamin}:${activeBbox.lomin}:${activeBbox.lamax}:${activeBbox.lomax}`
+    : null;
+  const previousAreaKey = useRef(areaKey);
 
-  const { settings, setAutoRefreshMs, resetSettings } = useSettings();
+  useEffect(() => {
+    if (previousAreaKey.current === areaKey) return;
+    previousAreaKey.current = areaKey;
+    setSelectedFlight(null);
+  }, [areaKey]);
+
   const online = useOnlineStatus();
   const {
     flights,
@@ -33,7 +43,7 @@ export default function App() {
     budget,
     providerName,
     refresh,
-  } = useFlights(activeBbox, { autoRefreshMs: settings.autoRefreshMs });
+  } = useFlights(activeBbox, { autoRefreshMs: workspace.autoRefreshMs });
 
   // The banner only explains recoverable states; it never replaces the list.
   const banner = deriveStatusBanner({
@@ -48,22 +58,28 @@ export default function App() {
 
   // ---- Handlers ----
   const handleClear = useCallback(() => {
-    setPerimeterBbox(null);
+    setPerimeter(null);
     setSelectedFlight(null);
-  }, []);
+  }, [setPerimeter]);
+
+  const resetRefreshInterval = useCallback(() => {
+    setAutoRefreshMs(DEFAULT_SETTINGS.autoRefreshMs);
+  }, [setAutoRefreshMs]);
 
   return (
     <div className="app">
       <Toolbar
         onRefresh={refresh}
         onClear={handleClear}
-        perimeterInstructions={perimeterBbox === null}
+        perimeterInstructions={activeBbox === null}
         loading={loading}
-        autoRefreshMs={settings.autoRefreshMs}
+        autoRefreshMs={workspace.autoRefreshMs}
+        units={workspace.units}
         cadence={cadence}
         budget={budget}
         onAutoRefreshChange={setAutoRefreshMs}
-        onResetSettings={resetSettings}
+        onUnitsChange={setUnits}
+        onResetSettings={resetRefreshInterval}
       />
 
       <StatusBanner
@@ -77,10 +93,11 @@ export default function App() {
           <FlightMap
             flights={flights}
             bbox={activeBbox}
-            onPerimeterSelected={setPerimeterBbox}
+            onPerimeterSelected={setPerimeter}
             selectedFlight={selectedFlight}
             onSelectFlight={setSelectedFlight}
-            refreshIntervalMs={settings.autoRefreshMs}
+            refreshIntervalMs={workspace.autoRefreshMs}
+            units={workspace.units}
           />
         </div>
 
@@ -95,6 +112,7 @@ export default function App() {
           providerName={providerName}
           hasArea={activeBbox !== null}
           status={status}
+          units={workspace.units}
         />
       </div>
     </div>

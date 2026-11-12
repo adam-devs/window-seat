@@ -62,4 +62,17 @@ describe('deriveFlightListState', () => {
       });
     }
   });
+
+  it('distinguishes an active filter with no matches', () => {
+    expect(
+      deriveFlightListState({
+        ...base,
+        status: 'ready',
+        filtersActive: true,
+      }),
+    ).toEqual({
+      kind: 'filtered',
+      message: 'No aircraft match the current filters.',
+    });
+  });
 });

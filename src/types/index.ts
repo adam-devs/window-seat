@@ -53,4 +53,4 @@ export interface BoundingBox {
   lomax: number; // max longitude
 }
 
-export type SelectionMode = 'perimeter';
+export type SelectionMode = 'perimeter' | 'direction';

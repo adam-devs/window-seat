@@ -1,9 +1,9 @@
-# Window Seat — Feature Specification
+# WindowSeat — Feature Specification
 
 > **Status:** M1 and M2.0 implemented; M2.1 and later planned
 > **Last updated:** 2026-11-12
-> **Current implementation:** M1 + M2.0 as of 2026-11-12 (branded "SkyWatch")
-> **Target product name:** Window Seat
+> **Current implementation:** M1 + M2.0 as of 2026-11-12 (branded "WindowSeat")
+> **Target product name:** WindowSeat
 
 This document describes both what the app does today and what it should do next.
 The pre-restart inventory in section 3 is retained as a baseline; sections 3.8
@@ -17,7 +17,7 @@ explicitly.
 
 ### 1.1 Purpose
 
-Window Seat is a lightweight web app for seeing aircraft around a chosen
+WindowSeat is a lightweight web app for seeing aircraft around a chosen
 location — "what is flying near my window right now?"
 
 The app is a real-time viewer, not a flight planner or historical tracker. The
@@ -246,7 +246,7 @@ M1 rebuilt the data path behind tested modules:
 | Status presentation | ✅ stale/error/rate-limited/offline banner; load vs refresh header |
 | Panel retention | ✅ rows, count, and detail card survive refreshes and failures |
 | Refresh settings | ✅ persisted interval, effective-cadence explanation, reset |
-| Tests | ✅ 321 Vitest tests across data, hook, and component layers |
+| Tests | ✅ 372 Vitest tests across data, hook, and component layers |
 | Build | ✅ `npm run build` passes |
 | Manual matrix | ✅ real-browser checks incl. 503/429, offline, rapid redraw, hidden tab |
 
@@ -269,7 +269,7 @@ M2.0 makes the app perimeter-only:
 | Perimeter selection | ✅ two-click rectangle, redraw, Clear, selected-aircraft markers |
 | Map rendering | ✅ perimeter rectangle only; location circle/marker removed |
 | Copy | ✅ “draw your search box” / “Draw a perimeter on the map…” |
-| Tests | ✅ 321 tests, including Toolbar perimeter-only copy/controls |
+| Tests | ✅ 372 tests, including Toolbar perimeter-only copy/controls |
 | Build | ✅ `npm run build` passes |
 | Browser check | ✅ no off-scope requests; 136-aircraft perimeter fetch |
 
@@ -580,9 +580,11 @@ interface FlightProvider {
 
 ### 6.4 Persistence schema
 
-**Current M1 store:** `window-seat:settings:v1` contains only
-`{ autoRefreshMs }`; budget usage is in `window-seat:budget:v1`. The workspace
-schema below is the M3 target; location/radius fields were removed with M2.0.
+**Current stores:** the legacy `window-seat:settings:v1` refresh key is read for
+migration; `window-seat:workspace:v1` implements the schema below and App now
+restores the saved perimeter on startup (auto-fit included). Units/theme UI is
+pending M3.4; budget usage remains in `window-seat:budget:v1`. Location/radius
+fields were removed with M2.0.
 
 ```ts
 interface StoredWorkspaceV1 {
@@ -684,7 +686,8 @@ area changes.
 - TypeScript strict mode. ✅
 - Unit tests for parsing, bounding-box math, interpolation, and persistence.
   🟡 parsing, policy/budget, settings, hook, component, dead-reckoning, motion,
-  trail, visual-state, and performance-harness coverage are in place (321
+  trail, visual-state, list controls, and performance-harness coverage are in
+  place (372
   tests + `npm run perf:check`); lint/CI remain.
 - Lint and formatting checks in CI. ⛔ (local test + build gates only)
 - No committed credentials or placeholder tokens. ✅
@@ -709,22 +712,22 @@ area changes.
 | Decluttering / clustering | ⛔ | F3.6 | P1 |
 | Follow selected aircraft | ⛔ | F3.5 | P2 |
 | Consistent ground traffic | 🟡 | F3.7 | P1 |
-| Sort / filter / search | ⛔ | F4.1–F4.3 | P1 |
-| Sticky detail card | 🟡 | F4.4 | P1 |
+| Sort / filter / search | ✅ | F4.1–F4.3 | P1 |
+| Sticky detail card | ✅ last-known badge | F4.4 | P1 |
 | Rich detail fields | 🟡 | F4.5 | P2 |
-| Units toggle | ⛔ | F6.1 / F4.7 | P1 |
+| Units toggle | ✅ aviation/metric | F6.1 / F4.7 | P1 |
 | Provider abstraction | ✅ | F5.1–F5.2 | P0 |
 | Request budget / backoff | ✅ | F5.3–F5.4 | P0 |
 | Last-good data | ✅ | F5.5 | P0 |
 | Request cancellation | ✅ | F5.6 | P1 |
 | Credentials via config | ✅ | F5.7 | P0 |
 | Production proxy path | ⛔ (local-only scope) | F5.8 | P0 |
-| Settings persistence | 🟡 refresh interval ✅; workspace ⛔ | F6 | P1 |
+| Settings persistence | 🟡 perimeter/refresh/units ✅; theme UI ⛔ | F6 | P1 |
 | Distinct UI states | ✅ | F7 | P1 |
 | List virtualization | ⛔ | F4.8 | P2 |
 | Mobile bottom sheet | 🟡 | F8.3 | P1 |
 | Accessibility pass | 🟡 labels/focus started | F9 | P2 |
-| Tests / lint / CI | 🟡 321 tests ✅; lint/CI ⛔ | 7.7 | P2 |
+| Tests / lint / CI | 🟡 372 tests ✅; lint/CI ⛔ | 7.7 | P2 |
 
 ---
 
@@ -747,7 +750,7 @@ area changes.
 | A13 | Medium | Units | Hard-coded aviation units; no metric option. | Units setting (F6.1). |
 | A14 | Low | Links | FlightRadar24 URL may be invalid without a callsign. | Validate identifier; hide invalid links (F4.6). |
 | A15 | Low | Types | Position source is a raw number; response tuples are not validated. | **Resolved 2026-11-12 (M1.2):** typed `Aircraft` model, epoch-ms timestamps, defensive tuple parsing; position source is not exposed. |
-| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 321 tests and production build added; favicon and lint/CI remain. |
+| A16 | Low | Repo | Empty `src/{components,hooks,types,utils}` directory; missing `/plane.svg`; no tests/lint/CI. | **Partially resolved 2026-11-12:** directory removed, 372 tests and production build added; favicon and lint/CI remain. |
 | A17 | Low | Mobile | Sidebar is a cramped 40vh panel; map may need resize invalidation. | Bottom sheet and resize handling (F8.3). |
 | A18 | Low | A11y | Icon-only buttons lack accessible names; no focus styling documented. | **Partially resolved 2026-11-12:** status banner and settings controls labelled; visible focus rings added. Full pass in M4 (F9). |
 

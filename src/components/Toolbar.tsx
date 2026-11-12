@@ -1,5 +1,6 @@
 import type { BudgetStatus } from '../data/budget';
 import type { Cadence } from '../data/policy';
+import type { UnitSystem } from '../workspace';
 import { SettingsPopover } from './SettingsPopover';
 
 interface ToolbarProps {
@@ -8,9 +9,11 @@ interface ToolbarProps {
   perimeterInstructions: boolean;
   loading: boolean;
   autoRefreshMs: number;
+  units: UnitSystem;
   cadence: Cadence | null;
   budget: BudgetStatus;
   onAutoRefreshChange: (ms: number) => void;
+  onUnitsChange: (units: UnitSystem) => void;
   onResetSettings: () => void;
 }
 
@@ -20,9 +23,11 @@ export function Toolbar({
   perimeterInstructions,
   loading,
   autoRefreshMs,
+  units,
   cadence,
   budget,
   onAutoRefreshChange,
+  onUnitsChange,
   onResetSettings,
 }: ToolbarProps) {
   return (
@@ -42,9 +47,11 @@ export function Toolbar({
 
       <SettingsPopover
         autoRefreshMs={autoRefreshMs}
+        units={units}
         cadence={cadence}
         budget={budget}
         onChange={onAutoRefreshChange}
+        onUnitsChange={onUnitsChange}
         onReset={onResetSettings}
       />
     </div>

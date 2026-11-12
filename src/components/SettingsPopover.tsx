@@ -16,12 +16,16 @@ import {
   REFRESH_OPTIONS_MS,
   formatInterval,
 } from '../settings';
+import { unitsLabel } from '../data/units';
+import type { UnitSystem } from '../workspace';
 
 interface SettingsPopoverProps {
   autoRefreshMs: number;
+  units: UnitSystem;
   cadence: Cadence | null;
   budget: BudgetStatus;
   onChange: (ms: number) => void;
+  onUnitsChange: (units: UnitSystem) => void;
   onReset: () => void;
 }
 
@@ -38,9 +42,11 @@ function credits(value: number): string {
  */
 export function SettingsPopover({
   autoRefreshMs,
+  units,
   cadence,
   budget,
   onChange,
+  onUnitsChange,
   onReset,
 }: SettingsPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -128,6 +134,22 @@ export function SettingsPopover({
                 {ms === DEFAULT_SETTINGS.autoRefreshMs && (
                   <span className="settings-default">Default</span>
                 )}
+              </label>
+            ))}
+          </fieldset>
+
+          <fieldset className="settings-group">
+            <legend>Units</legend>
+            {(['aviation', 'metric'] as const).map((option) => (
+              <label className="settings-option" key={option}>
+                <input
+                  type="radio"
+                  name="units"
+                  value={option}
+                  checked={units === option}
+                  onChange={() => onUnitsChange(option)}
+                />
+                <span>{unitsLabel(option)}</span>
               </label>
             ))}
           </fieldset>

@@ -35,6 +35,7 @@ interface RenderToolbarOptions {
 function renderToolbar(options: RenderToolbarOptions = {}) {
   const onRefresh = options.onRefresh ?? vi.fn();
   const onClear = options.onClear ?? vi.fn();
+  const onUnitsChange = vi.fn();
 
   const view = render(
     <Toolbar
@@ -43,14 +44,16 @@ function renderToolbar(options: RenderToolbarOptions = {}) {
       perimeterInstructions={options.perimeterInstructions ?? true}
       loading={options.loading ?? false}
       autoRefreshMs={30_000}
+      units="aviation"
       cadence={null}
       budget={budget}
       onAutoRefreshChange={vi.fn()}
+      onUnitsChange={onUnitsChange}
       onResetSettings={vi.fn()}
     />,
   );
 
-  return { ...view, onRefresh, onClear };
+  return { ...view, onRefresh, onClear, onUnitsChange };
 }
 
 afterEach(cleanup);
@@ -72,9 +75,11 @@ describe('Toolbar', () => {
         perimeterInstructions={false}
         loading={false}
         autoRefreshMs={30_000}
+        units="aviation"
         cadence={null}
         budget={budget}
         onAutoRefreshChange={vi.fn()}
+        onUnitsChange={vi.fn()}
         onResetSettings={vi.fn()}
       />,
     );

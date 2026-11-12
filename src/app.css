@@ -1,5 +1,5 @@
 /* ============================================================
-   app.css — SkyWatch base styles
+   app.css — WindowSeat base styles
    All colours / fonts / spacing use CSS variables so you can
    reskin everything by editing the :root block below.
    ============================================================ */
@@ -276,6 +276,77 @@ body {
 .count { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
 .error-msg { font-size: 12px; color: #f87171; margin-top: 4px; }
 
+/* ---- Flight list controls ---- */
+.flight-controls {
+  display: grid;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.flight-search {
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+}
+.flight-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.flight-control-row { display: flex; gap: 8px; }
+.flight-control {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.flight-control select {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+}
+.flight-control select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.flight-view-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.flight-view-summary button {
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+.flight-view-summary button:hover { border-color: var(--accent); }
+.flight-view-summary button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* ---- Detail card ---- */
 .detail-card {
   margin: 12px;
@@ -291,6 +362,29 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+}
+
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.last-known-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.detail-card--last-known { border-color: var(--warn); }
+.last-known-note {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--warn);
 }
 
 .callsign {
@@ -367,6 +461,7 @@ body {
   font-size: 12px;
   color: var(--text-muted);
 }
+.row-ground { color: var(--warn); }
 
 /* ---- Responsive: stack on mobile ---- */
 @media (max-width: 700px) {

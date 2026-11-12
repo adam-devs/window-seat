@@ -6,6 +6,7 @@ import {
   Polyline,
   Popup,
   Rectangle,
+  useMap,
   useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
@@ -25,7 +26,8 @@ import {
   applyMarkerVisual,
   markerVisual,
 } from './markerVisuals';
-import { msToKnots, mToFeet } from '../utils/opensky';
+import { formatAltitude, formatSpeed } from '../data/units';
+import type { UnitSystem } from '../workspace';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getPlaneIcon } from './mapIcons';
 
@@ -43,6 +45,7 @@ interface AircraftMarkerProps {
   selected: boolean;
   onSelectFlight: (icao24: string | null) => void;
   registerMarker: (icao24: string, marker: L.Marker | null) => void;
+  units: UnitSystem;
 }
 
 function aircraftMarkerPropsEqual(
@@ -55,6 +58,7 @@ function aircraftMarkerPropsEqual(
     previous.selected === next.selected &&
     previous.onSelectFlight === next.onSelectFlight &&
     previous.registerMarker === next.registerMarker &&
+    previous.units === next.units &&
     a.icao24 === b.icao24 &&
     a.callsign === b.callsign &&
     a.origin_country === b.origin_country &&
@@ -68,6 +72,7 @@ const AircraftMarker = memo(function AircraftMarker({
   selected,
   onSelectFlight,
   registerMarker,
+  units,
 }: AircraftMarkerProps) {
   // Leaflet position is driven imperatively by the motion loop. Keeping the
   // React `position` prop at its mount value prevents a snapshot from snapping
@@ -104,11 +109,11 @@ const AircraftMarker = memo(function AircraftMarker({
         {flight.origin_country ?? 'Unknown country'}
         <br />
         {flight.baro_altitude !== null
-          ? `Alt: ${mToFeet(flight.baro_altitude).toLocaleString()} ft`
+          ? `Alt: ${formatAltitude(flight.baro_altitude, units)}`
           : 'Altitude: unknown'}
         <br />
         {flight.velocity !== null
-          ? `Speed: ${msToKnots(flight.velocity)} kts`
+          ? `Speed: ${formatSpeed(flight.velocity, units)}`
           : ''}
       </Popup>
     </Marker>
@@ -166,6 +171,41 @@ const TrailLine = memo(function TrailLine({
   previous.register === next.register &&
   previous.options === next.options);
 
+// ---- Sub-component: fit the map to the active perimeter ----
+interface PerimeterFitterProps {
+  bbox: BoundingBox | null;
+  areaKey: string | null;
+  reducedMotion: boolean;
+}
+
+function PerimeterFitter({
+  bbox,
+  areaKey,
+  reducedMotion,
+}: PerimeterFitterProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!bbox) return;
+    const frame = requestAnimationFrame(() => {
+      map.fitBounds(
+        [
+          [bbox.lamin, bbox.lomin],
+          [bbox.lamax, bbox.lomax],
+        ],
+        {
+          padding: [32, 32],
+          maxZoom: 12,
+          animate: !reducedMotion,
+        },
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [map, areaKey, reducedMotion]);
+
+  return null;
+}
+
 // ---- Sub-component: handles map clicks for perimeter drawing ----
 interface PerimeterDrawerProps {
   onBoundsSelected: (bbox: BoundingBox) => void;
@@ -208,6 +248,7 @@ interface FlightMapProps {
   onSelectFlight: (icao24: string | null) => void;
   /** Current user cadence; tightens the dead-reckoning cap. */
   refreshIntervalMs: number;
+  units: UnitSystem;
 }
 
 export function FlightMap({
@@ -217,6 +258,7 @@ export function FlightMap({
   selectedFlight,
   onSelectFlight,
   refreshIntervalMs,
+  units,
 }: FlightMapProps) {
   const reducedMotion = useReducedMotion();
   const mapRef = useRef<L.Map | null>(null);
@@ -463,6 +505,12 @@ export function FlightMap({
         />
       )}
 
+      <PerimeterFitter
+        bbox={bbox}
+        areaKey={areaKey}
+        reducedMotion={reducedMotion}
+      />
+
       <PerimeterDrawer onBoundsSelected={onPerimeterSelected} />
 
       {/* Observed trails and the dead-reckoned segment */}
@@ -493,6 +541,7 @@ export function FlightMap({
           selected={flight.icao24 === selectedFlight}
           onSelectFlight={onSelectFlight}
           registerMarker={registerMarker}
+          units={units}
         />
       ))}
     </MapContainer>

@@ -45,6 +45,7 @@ interface RenderPanelOptions {
   providerName?: string;
   hasArea?: boolean;
   status?: FlightStatus;
+  units?: 'aviation' | 'metric';
 }
 
 function renderPanel(options: RenderPanelOptions = {}) {
@@ -64,6 +65,7 @@ function panelElement(options: RenderPanelOptions = {}) {
       providerName={options.providerName ?? 'OpenSky Network'}
       hasArea={options.hasArea ?? true}
       status={options.status ?? 'ready'}
+      units={options.units ?? 'aviation'}
     />
   );
 }
@@ -87,6 +89,7 @@ function SelectionHarness({
       providerName="OpenSky Network"
       hasArea
       status="ready"
+      units="aviation"
     />
   );
 }
@@ -94,6 +97,14 @@ function SelectionHarness({
 afterEach(cleanup);
 
 describe('FlightPanel', () => {
+  it('uses the WindowSeat wordmark', () => {
+    renderPanel();
+
+    expect(
+      screen.getByRole('heading', { name: 'WindowSeat' }),
+    ).toBeTruthy();
+  });
+
   it('keeps rows and the count visible during a background refresh', () => {
     renderPanel({
       loading: true,
@@ -233,12 +244,22 @@ describe('FlightPanel', () => {
     expect(screen.getByText('+492 fpm')).toBeTruthy();
     expect(screen.getByText('90°')).toBeTruthy();
     expect(screen.getByText('4321')).toBeTruthy();
-    expect(screen.getByText('Airborne')).toBeTruthy();
+    expect(
+      screen.getByText('Airborne', { selector: '.detail-value' }),
+    ).toBeTruthy();
     expect(
       screen
         .getByText('View on FlightRadar24 ↗')
         .getAttribute('href'),
     ).toBe('https://www.flightradar24.com/SWA123');
+  });
+
+  it('formats row values in metric when selected', () => {
+    renderPanel({ units: 'metric' });
+
+    expect(screen.getAllByText('10,000 m')).toHaveLength(2);
+    expect(screen.getAllByText('792 km/h')).toHaveLength(2);
+    expect(screen.queryByText(/ft$/)).toBeNull();
   });
 
   it('counts only airborne aircraft and ignores on-ground rows', () => {
@@ -290,5 +311,104 @@ describe('FlightPanel', () => {
     ).toContain('active');
     expect(screen.getByText('ICAO24')).toBeTruthy();
     expect(screen.getByText('2 aircraft in area')).toBeTruthy();
+  });
+
+  it('filters rows by callsign or ICAO and can clear the search', () => {
+    renderPanel();
+
+    const search = screen.getByLabelText('Search flights');
+    fireEvent.change(search, { target: { value: 'def' } });
+
+    expect(screen.queryByText('ABC123')).toBeNull();
+    expect(screen.getByText('DEF456')).toBeTruthy();
+    expect(screen.getByText('1 of 2 shown')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    expect(screen.getByText('ABC123')).toBeTruthy();
+    expect(screen.getByText('DEF456')).toBeTruthy();
+    expect(screen.queryByText('1 of 2 shown')).toBeNull();
+  });
+
+  it('reports when filters match no aircraft', () => {
+    renderPanel();
+
+    fireEvent.change(screen.getByLabelText('Search flights'), {
+      target: { value: 'zzz' },
+    });
+
+    expect(
+      screen.getByText('No aircraft match the current filters.'),
+    ).toBeTruthy();
+    expect(screen.getByText('0 of 2 shown')).toBeTruthy();
+  });
+
+  it('sorts rows by altitude', () => {
+    const low = { ...aircraft('low1', 'LOW'), baro_altitude: 1_000 };
+    const high = { ...aircraft('high1', 'HIGH'), baro_altitude: 9_000 };
+    renderPanel({ flights: [low, high] });
+
+    fireEvent.change(screen.getByLabelText('Sort flights'), {
+      target: { value: 'altitude-desc' },
+    });
+
+    const rows = Array.from(document.querySelectorAll('.row-callsign')).map(
+      (node) => node.textContent,
+    );
+    expect(rows).toEqual(['HIGH', 'LOW']);
+  });
+
+  it('shows ground traffic only when the filter includes it', () => {
+    const ground = {
+      ...aircraft('gnd001', 'GND1'),
+      on_ground: true,
+    };
+    renderPanel({ flights: [...flights, ground] });
+
+    expect(screen.queryByText('GND1')).toBeNull();
+    expect(screen.getByText('2 aircraft in area')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Filter flights'), {
+      target: { value: 'all' },
+    });
+
+    expect(screen.getByText('GND1')).toBeTruthy();
+    expect(
+      screen.getByText('On ground', { selector: '.row-ground' }),
+    ).toBeTruthy();
+    expect(screen.getByText('3 aircraft in area')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Filter flights'), {
+      target: { value: 'on-ground' },
+    });
+
+    expect(screen.queryByText('ABC123')).toBeNull();
+    expect(screen.getByText('GND1')).toBeTruthy();
+    expect(screen.getByText('1 on ground')).toBeTruthy();
+  });
+
+  it('keeps the last-known detail when the aircraft leaves the feed', () => {
+    const initial = renderPanel({
+      selectedFlight: 'abc123',
+      lastUpdated: updated,
+    });
+    expect(screen.getByText('ICAO24')).toBeTruthy();
+
+    initial.rerender(
+      panelElement({
+        flights: [aircraft('def456', 'DEF456')],
+        selectedFlight: 'abc123',
+        lastUpdated: updated,
+      }),
+    );
+
+    expect(screen.getByText('Last known')).toBeTruthy();
+    expect(
+      screen.getByText('No longer in the latest snapshot.'),
+    ).toBeTruthy();
+    expect(screen.getByText('ICAO24')).toBeTruthy();
+    expect(
+      screen.getByText('ABC123', { selector: '.callsign' }),
+    ).toBeTruthy();
   });
 });

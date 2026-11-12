@@ -1,4 +1,4 @@
-# SkyWatch ✈️
+# WindowSeat ✈️
 
 A lightweight flight tracker using the [OpenSky Network API](https://openskynetwork.github.io/opensky-api/rest.html).
 
