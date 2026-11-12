@@ -2,8 +2,11 @@ import { useState, useCallback, useMemo } from 'react';
 import { FlightMap } from './components/FlightMap';
 import { FlightPanel } from './components/FlightPanel';
 import { Toolbar } from './components/Toolbar';
+import { StatusBanner } from './components/StatusBanner';
 import { useFlights } from './hooks/useFlights';
 import { useSettings } from './hooks/useSettings';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { deriveStatusBanner } from './data/statusBanner';
 import { bboxFromPoint } from './utils/opensky';
 import type { BoundingBox, SelectionMode } from './types';
 import './app.css';
@@ -37,11 +40,33 @@ export default function App() {
     [mode, locationCenter, radiusKm, perimeterBbox],
   );
 
-  const { settings } = useSettings();
-  const { flights, loading, error, lastUpdated, refresh } = useFlights(
-    activeBbox,
-    { autoRefreshMs: settings.autoRefreshMs },
-  );
+  const { settings, setAutoRefreshMs, resetSettings } = useSettings();
+  const online = useOnlineStatus();
+  const {
+    flights,
+    loading,
+    error,
+    lastUpdated,
+    status,
+    lastSuccessAt,
+    dataAgeMs,
+    nextRetryAt,
+    cadence,
+    budget,
+    providerName,
+    refresh,
+  } = useFlights(activeBbox, { autoRefreshMs: settings.autoRefreshMs });
+
+  // The banner only explains recoverable states; it never replaces the list.
+  const banner = deriveStatusBanner({
+    status,
+    online,
+    hasData: lastSuccessAt !== null,
+    error,
+    dataAgeMs,
+    nextRetryAt,
+    providerName,
+  });
 
   // ---- Handlers ----
   const handleLocationSearch = useCallback(async (query: string) => {
@@ -85,6 +110,17 @@ export default function App() {
         onClear={handleClear}
         perimeterInstructions={perimeterBbox === null}
         loading={loading}
+        autoRefreshMs={settings.autoRefreshMs}
+        cadence={cadence}
+        budget={budget}
+        onAutoRefreshChange={setAutoRefreshMs}
+        onResetSettings={resetSettings}
+      />
+
+      <StatusBanner
+        model={banner}
+        onRefresh={refresh}
+        refreshing={loading}
       />
 
       {geocodeError && (
@@ -112,6 +148,10 @@ export default function App() {
           loading={loading}
           error={error}
           lastUpdated={lastUpdated}
+          dataAgeMs={dataAgeMs}
+          providerName={providerName}
+          hasArea={activeBbox !== null}
+          status={status}
         />
       </div>
     </div>

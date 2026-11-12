@@ -1,4 +1,7 @@
 import type { Aircraft } from '../data/types';
+import type { FlightStatus } from '../data/flightStatus';
+import { deriveFlightListState } from '../data/flightListState';
+import { derivePanelHeader } from '../data/panelHeader';
 import { msToKnots, mToFeet } from '../utils/opensky';
 
 interface FlightPanelProps {
@@ -8,6 +11,10 @@ interface FlightPanelProps {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
+  dataAgeMs: number | null;
+  providerName: string;
+  hasArea: boolean;
+  status: FlightStatus;
 }
 
 function altitudeLabel(m: number | null): string {
@@ -33,21 +40,42 @@ export function FlightPanel({
   loading,
   error,
   lastUpdated,
+  dataAgeMs,
+  providerName,
+  hasArea,
+  status,
 }: FlightPanelProps) {
   const airborne = flights.filter((f) => !f.on_ground);
   const selected = flights.find((f) => f.icao24 === selectedFlight) ?? null;
+  // Last-good rows stay rendered through refreshes and failures; this only
+  // describes the empty case.
+  const listState = deriveFlightListState({
+    hasArea,
+    status,
+    visibleCount: airborne.length,
+  });
+  // First load may replace the header text; a background refresh appends to the
+  // existing "Updated …" line instead of hiding it.
+  const header = derivePanelHeader({
+    hasArea,
+    hasData: lastUpdated !== null,
+    status,
+    lastUpdated,
+    dataAgeMs,
+    providerName,
+  });
 
   return (
     <div className="flight-panel">
       <div className="panel-header">
         <h2>SkyWatch</h2>
-        <p className="subtitle">
-          {loading
-            ? 'Updating…'
-            : lastUpdated
-            ? `Updated ${lastUpdated.toLocaleTimeString()}`
-            : 'No data yet'}
+        <p
+          className="subtitle"
+          title={header.exactTime ? `Updated at ${header.exactTime}` : undefined}
+        >
+          {header.text}
         </p>
+        {header.provider && <p className="provider">{header.provider}</p>}
         {error && <p className="error-msg">{error}</p>}
         <p className="count">{airborne.length} aircraft in area</p>
       </div>
@@ -57,7 +85,14 @@ export function FlightPanel({
         <div className="detail-card">
           <div className="detail-header">
             <span className="callsign">{selected.callsign ?? 'N/A'}</span>
-            <button className="close-btn" onClick={() => onSelectFlight(null)}>✕</button>
+            <button
+              type="button"
+              className="close-btn"
+              aria-label="Close flight details"
+              onClick={() => onSelectFlight(null)}
+            >
+              ✕
+            </button>
           </div>
           <div className="detail-grid">
             <DetailItem label="ICAO24" value={selected.icao24.toUpperCase()} />
@@ -81,9 +116,18 @@ export function FlightPanel({
       )}
 
       {/* Flight list */}
-      <div className="flight-list">
-        {airborne.length === 0 && !loading && (
-          <p className="empty-msg">Set a search area on the map to begin tracking.</p>
+      <div
+        className="flight-list"
+        aria-busy={loading}
+        aria-label="Nearby aircraft"
+      >
+        {listState && (
+          <p
+            className={`empty-msg empty-msg--${listState.kind}`}
+            role="status"
+          >
+            {listState.message}
+          </p>
         )}
         {airborne.map((f) => (
           <div

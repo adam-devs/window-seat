@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import type { SelectionMode } from '../types';
+import type { BudgetStatus } from '../data/budget';
+import type { Cadence } from '../data/policy';
+import { SettingsPopover } from './SettingsPopover';
 
 interface ToolbarProps {
   mode: SelectionMode;
@@ -12,6 +15,11 @@ interface ToolbarProps {
   onClear: () => void;
   perimeterInstructions: boolean;
   loading: boolean;
+  autoRefreshMs: number;
+  cadence: Cadence | null;
+  budget: BudgetStatus;
+  onAutoRefreshChange: (ms: number) => void;
+  onResetSettings: () => void;
 }
 
 export function Toolbar({
@@ -25,6 +33,11 @@ export function Toolbar({
   onClear,
   perimeterInstructions,
   loading,
+  autoRefreshMs,
+  cadence,
+  budget,
+  onAutoRefreshChange,
+  onResetSettings,
 }: ToolbarProps) {
   const [query, setQuery] = useState('');
 
@@ -95,6 +108,14 @@ export function Toolbar({
       <button className="refresh-btn" onClick={onRefresh} disabled={loading}>
         {loading ? '⏳' : '🔄'} Refresh
       </button>
+
+      <SettingsPopover
+        autoRefreshMs={autoRefreshMs}
+        cadence={cadence}
+        budget={budget}
+        onChange={onAutoRefreshChange}
+        onReset={onResetSettings}
+      />
     </div>
   );
 }

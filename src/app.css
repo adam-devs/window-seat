@@ -105,6 +105,107 @@ body {
 }
 .refresh-btn:disabled { opacity: 0.4; cursor: default; }
 
+/* ---- Refresh settings popover ---- */
+.settings-wrap { position: relative; display: flex; }
+
+.settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-trigger[aria-expanded='true'] { border-color: var(--accent); }
+.settings-trigger:focus-visible,
+.settings-reset:focus-visible,
+.settings-option:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1200;
+  width: 292px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 45%);
+  font-size: 13px;
+  color: var(--text);
+}
+.settings-popover:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-heading h3 { font-size: 14px; font-weight: 700; }
+.settings-heading p {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.settings-group { border: 0; margin-top: 12px; }
+.settings-group legend {
+  margin-bottom: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.settings-option:hover { background: var(--surface-2); }
+.settings-option input { accent-color: var(--accent); }
+.settings-default {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-status {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.settings-status--paused { color: var(--warn); }
+
+.settings-budget {
+  display: grid;
+  gap: 3px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.settings-budget strong { color: var(--text); font-weight: 600; }
+
+.settings-reset {
+  width: 100%;
+  margin-top: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.settings-reset:hover { border-color: var(--accent); }
+
 .radius-label {
   font-size: 12px;
   color: var(--text-muted);
@@ -120,6 +221,67 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* ---- Status banner ---- */
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  border-left: 4px solid transparent;
+  flex-shrink: 0;
+}
+
+.status-banner--info {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-left-color: var(--accent);
+  color: #bfdbfe;
+}
+
+.status-banner--warning {
+  background: color-mix(in srgb, var(--warn) 16%, var(--surface));
+  border-left-color: var(--warn);
+  color: #fde68a;
+}
+
+.status-banner--error {
+  background: color-mix(in srgb, #ef4444 16%, var(--surface));
+  border-left-color: #ef4444;
+  color: #fca5a5;
+}
+
+.status-banner-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.status-banner-text strong { font-weight: 600; }
+.status-banner-detail { opacity: 0.9; }
+
+.status-banner-action {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.status-banner-action:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.status-banner-action:disabled { opacity: 0.5; cursor: default; }
+.status-banner-action:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .geocode-error {
@@ -166,6 +328,7 @@ body {
 }
 
 .subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.provider { font-size: 10px; color: var(--text-muted); margin-top: 1px; opacity: 0.8; }
 .count { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
 .error-msg { font-size: 12px; color: #f87171; margin-top: 4px; }
 
@@ -234,6 +397,7 @@ body {
   color: var(--text-muted);
   text-align: center;
 }
+.empty-msg--unavailable { color: #fca5a5; }
 
 .flight-row {
   padding: 10px 16px;
